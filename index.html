@@ -9,6 +9,23 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
+        /* تحسينات السلة الجديدة */
+        .cart-item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .remove-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
         /* أنيميشن التحميل */
         .status-screen {
             display:none; position:fixed; top:0; left:0; width:100%; height:100%;
@@ -26,10 +43,10 @@
 <div id="statusScreen" class="status-screen">
     <img src="logo.png" style="width:100px; margin-bottom:20px;">
     <div class="loader"></div>
-    <h2 style="color:var(--primary); margin-top:20px;">تم استلام طلبك بنجاح!</h2>
+    <h2 id="statusTitle" style="color:var(--primary); margin-top:20px;">تم استلام طلبك!</h2>
     <p id="orderStatusText">جاري مراجعة طلبك وتحضيره الآن...</p>
     <p style="font-size:12px; color:#888;">برجاء عدم غلق هذه الصفحة لمتابعة التحديثات</p>
-    <button onclick="cancelTracking()" style="margin-top:30px; border:none; background:none; color:red; text-decoration:underline;">طلب جديد</button>
+    <button onclick="cancelTracking()" style="margin-top:30px; border:none; background:none; color:red; text-decoration:underline;">إلغاء والعودة للقائمة</button>
 </div>
 
 <div class="header-pro">
@@ -39,20 +56,20 @@
 
 <div id="itemsGrid"></div>
 
-<div class="cart-floating" id="cartBar" style="display:none;" onclick="openOrder()">
-    <span>إتمام الطلب 🛒</span>
+<div class="cart-floating" id="cartBar" style="display:none; justify-content: space-between; align-items: center;" onclick="openOrder()">
+    <span>إتمام الطلب 🛒 (<b id="cartCount">0</b>)</span>
     <b id="displayTotal">0 ج.م</b>
 </div>
 
 <div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:2000; padding:20px; overflow-y:auto; box-sizing:border-box;">
-    <h3>تفاصيل الطلب 🧾</h3>
-    <div id="orderItems" style="border-bottom:1px solid #eee; padding-bottom:10px;"></div>
+    <h3>سلة المشتريات 🛒</h3>
+    <div id="orderItems" style="background:#f9f9f9; border-radius:15px; padding:10px; margin-bottom:15px;"></div>
     
     <div style="margin-top:15px;">
         <input type="text" id="custName" placeholder="الاسم الكامل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px;">
         
         <select id="delMethod" onchange="calcTotal()" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
-            <option value="تيك أواي">تيك أواي (بدون خدمة توصيل)</option>
+            <option value="تيك أواي">تيك أواي (من الفرع)</option>
             <option value="دليفري">دليفري (+ 20 ج.م خدمة)</option>
         </select>
 
@@ -73,13 +90,12 @@
         </div>
     </div>
 
-    <h2 style="text-align:center;">الإجمالي: <span id="finalPrice" style="color:var(--primary);">0</span> ج.م</h2>
-    <button onclick="finish()" style="width:100%; padding:18px; background:var(--primary); color:white; border:none; border-radius:12px; font-weight:bold; font-size:1.1rem;">تأكيد الطلب 🚀</button>
-    <center><button onclick="document.getElementById('paymentModal').style.display='none'" style="margin-top:10px; color:gray; border:none; background:none;">رجوع</button></center>
+    <h2 style="text-align:center;">الإجمالي النهائي: <span id="finalPrice" style="color:var(--primary);">0</span> ج.م</h2>
+    <button onclick="finish()" style="width:100%; padding:18px; background:var(--primary); color:white; border:none; border-radius:12px; font-weight:bold; font-size:1.1rem;">إرسال الطلب للمطعم 🚀</button>
+    <center><button onclick="document.getElementById('paymentModal').style.display='none'" style="margin-top:15px; color:gray; border:none; background:none; font-size:16px;">+ إضافة المزيد للمنبو</button></center>
 </div>
 
 <script>
-    // إعدادات السيرفر
     const firebaseConfig = {
         apiKey: "AIzaSyDOLe6hXjYGLy-dJZgVWBsyKnG2nCdxqBQ",
         authDomain: "lovinovin-49635.firebaseapp.com",
@@ -95,13 +111,15 @@
     let menu = [];
 
     window.onload = function() {
-        if(localStorage.getItem('pendingOrder') === 'true') {
+        const pendingId = localStorage.getItem('pendingOrderId');
+        if(pendingId) {
             document.getElementById('statusScreen').style.display = 'flex';
+            watchOrderStatus(pendingId);
         }
-        // جلب المنيو من السيرفر
+        
         db.ref('menu').on('value', (snapshot) => {
             const data = snapshot.val();
-            menu = data ? Object.values(data) : [];
+            menu = data ? Object.keys(data).map(key => ({id: key, ...data[key]})) : [];
             render();
         });
     };
@@ -125,12 +143,23 @@
         calcTotal();
     }
 
+    function removeFromCart(index) {
+        cart.splice(index, 1);
+        if(cart.length === 0) {
+            document.getElementById('paymentModal').style.display = 'none';
+            document.getElementById('cartBar').style.display = 'none';
+        }
+        openOrder(); // تحديث العرض داخل السلة
+        calcTotal();
+    }
+
     function calcTotal() {
         let base = cart.reduce((s, it) => s + parseFloat(it.price), 0);
         let delivery = document.getElementById('delMethod').value === 'دليفري' ? 20 : 0;
         let total = base + delivery;
         document.getElementById('displayTotal').innerText = total + " ج.م";
         document.getElementById('finalPrice').innerText = total;
+        document.getElementById('cartCount').innerText = cart.length;
         document.getElementById('delDetails').style.display = delivery > 0 ? 'block' : 'none';
     }
 
@@ -141,7 +170,12 @@
 
     function openOrder() {
         document.getElementById('paymentModal').style.display = 'block';
-        document.getElementById('orderItems').innerHTML = cart.map(it => `<p style="display:flex; justify-content:space-between; margin:5px 0;"><span>${it.name}</span> <b>${it.price} ج.م</b></p>`).join('');
+        document.getElementById('orderItems').innerHTML = cart.map((it, idx) => `
+            <div class="cart-item-row">
+                <span>${it.name} (${it.price} ج.م)</span>
+                <button class="remove-btn" onclick="removeFromCart(${idx})">حذف 🗑️</button>
+            </div>
+        `).join('');
     }
 
     function finish() {
@@ -153,21 +187,28 @@
 
         if(!name) return alert("الاسم مطلوب!");
         if(method === 'دليفري' && !phone) return alert("رقم التلفون مهم للدليفري!");
+        if(cart.length === 0) return alert("السلة فاضية!");
 
         const saveOrder = (imgBase64 = null) => {
+            const newOrderRef = db.ref('orders').push();
+            const orderId = newOrderRef.key;
+            
             const order = {
-                id: Date.now(),
+                id: orderId,
                 name, method, phone, payType, payImg: imgBase64,
                 items: cart.map(i => i.name).join(' + '),
                 total: document.getElementById('finalPrice').innerText,
                 time: new Date().toLocaleTimeString('ar-EG'),
-                status: 'pending'
+                status: 'new'
             };
             
-            // إرسال للسيرفر
-            db.ref('orders').push(order).then(() => {
-                localStorage.setItem('pendingOrder', 'true');
+            newOrderRef.set(order).then(() => {
+                localStorage.setItem('pendingOrderId', orderId);
+                cart = []; // تصفير السلة
+                document.getElementById('paymentModal').style.display = 'none';
+                document.getElementById('cartBar').style.display = 'none';
                 document.getElementById('statusScreen').style.display = 'flex';
+                watchOrderStatus(orderId);
             });
         }
 
@@ -180,43 +221,56 @@
         }
     }
 
-    function cancelTracking() {
-        if(confirm("هل تريد إلغاء شاشة التتبع والعودة للمنيو؟")) {
-            localStorage.removeItem('pendingOrder');
-            location.reload();
-        }
+    function watchOrderStatus(id) {
+        db.ref('orders/' + id + '/status').on('value', (snapshot) => {
+            const status = snapshot.val();
+            const text = document.getElementById('orderStatusText');
+            const title = document.getElementById('statusTitle');
+            
+            const statuses = {
+                'new': "🕒 طلبك وصل للمطعم.. هنراجعه حالاً",
+                'preparing': "👨‍🍳 جاري التحضير الآن في المطبخ..",
+                'onway': "🛵 طلبك في الطريق إليك الآن.. استعد!",
+                'delivered': "✅ تم التسليم بنجاح.. بالهنا والشفا!",
+                'rejected': "❌ نعتذر، تم رفض الطلب لعدم توفر المكونات"
+            };
+
+            if (status && statuses[status]) {
+                text.innerHTML = statuses[status];
+                
+                // لو الحالة "في الطريق"، بنطلع من صفحة التتبع ونروح للمنيو بعد 5 ثواني
+                if (status === 'onway') {
+                    title.innerHTML = "الأوردر خرج!";
+                    text.style.color = "orange";
+                    setTimeout(() => {
+                        alert("طلبك في الطريق! تقدر تطلب حاجة تانية دلوقتي.");
+                        cancelTracking();
+                    }, 5000); 
+                }
+                
+                if (status === 'delivered') {
+                    title.innerHTML = "بالهنا والشفا!";
+                    setTimeout(cancelTracking, 3000);
+                }
+            }
+        });
     }
 
-    function checkMyStatus() {
-        const status = localStorage.getItem('lastStatus');
-        const text = document.getElementById('orderStatusText');
-        const statuses = {
-            'pending': "🕒 طلبك قيد الانتظار.. هنراجع الطلب حالاً",
-            'preparing': "👨‍🍳 جاري تحضير طلبك الآن في المطبخ..",
-            'onway': "🛵 طلبك في الطريق إليك الآن.. استعد!",
-            'delivered': "✅ تم تسليم الطلب بنجاح.. بالهنا والشفا!",
-            'rejected': "❌ نعتذر، تم رفض الطلب لعدم توفر المكونات"
-        };
-        if (status && statuses[status]) {
-            text.innerHTML = statuses[status];
-            if(status === 'onway') text.style.color = "orange";
-            if(status === 'delivered') text.style.color = "green";
-            if(status === 'rejected') text.style.color = "red";
-        }
+    function cancelTracking() {
+        localStorage.removeItem('pendingOrderId');
+        location.reload();
     }
-    setInterval(checkMyStatus, 3000);
 </script>
 
 <div onclick="toggleComp()" id="floatingCompBtn" style="position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: red; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; z-index: 9999; border: 3px solid white;">💬</div>
-
 <div id="newCompScreen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center; backdrop-filter: blur(5px);">
-    <div style="background:white; width:85%; max-width:380px; padding:25px; border-radius:25px; direction:rtl; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-        <h3 style="text-align:center; color:red; margin:0 0 15px 0;">تقديم شكوى أو اقتراح ⚠️</h3>
-        <input type="text" id="c_Name" placeholder="الاسم (اختياري)" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px; box-sizing:border-box; outline:none;">
-        <input type="number" id="c_Phone" placeholder="رقم الموبايل (ضروري)" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px; box-sizing:border-box; outline:none;">
-        <textarea id="c_Text" placeholder="اكتب مشكلتك هنا..." style="width:100%; height:100px; padding:12px; border:1px solid #ddd; border-radius:10px; box-sizing:border-box; outline:none; font-family:inherit;"></textarea>
-        <button onclick="sendMyComplaint()" style="width:100%; padding:15px; background:red; color:white; border:none; border-radius:12px; font-weight:bold; font-size:16px; margin-top:10px; cursor:pointer;">إرسال الشكوى 🚀</button>
-        <button onclick="toggleComp()" style="width:100%; background:none; border:none; color:gray; margin-top:10px; cursor:pointer; font-size:14px;">إلغاء</button>
+    <div style="background:white; width:85%; max-width:380px; padding:25px; border-radius:25px; direction:rtl;">
+        <h3 style="text-align:center; color:red;">تقديم شكوى أو اقتراح ⚠️</h3>
+        <input type="text" id="c_Name" placeholder="الاسم (اختياري)" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px;">
+        <input type="number" id="c_Phone" placeholder="رقم الموبايل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px;">
+        <textarea id="c_Text" placeholder="اكتب مشكلتك هنا..." style="width:100%; height:100px; padding:12px; border:1px solid #ddd; border-radius:10px;"></textarea>
+        <button onclick="sendMyComplaint()" style="width:100%; padding:15px; background:red; color:white; border:none; border-radius:12px; font-weight:bold; margin-top:10px;">إرسال الشكوى 🚀</button>
+        <button onclick="toggleComp()" style="width:100%; background:none; border:none; color:gray; margin-top:10px;">إلغاء</button>
     </div>
 </div>
 
@@ -225,16 +279,13 @@ function toggleComp() {
     const screen = document.getElementById('newCompScreen');
     screen.style.display = (screen.style.display === 'none' || screen.style.display === '') ? 'flex' : 'none';
 }
-
 function sendMyComplaint() {
     const n = document.getElementById('c_Name').value;
     const p = document.getElementById('c_Phone').value;
     const t = document.getElementById('c_Text').value;
     if(!p || !t) return alert("يا ريت تكتب رقمك والشكوى!");
-
-    const complaintData = { name: n || "عميل مجهول", phone: p, text: t, time: new Date().toLocaleString('ar-EG') };
-    db.ref('complaints').push(complaintData).then(() => {
-        alert("تم الإرسال بنجاح.. شكراً ليك!");
+    db.ref('complaints').push({ name: n || "عميل مجهول", phone: p, text: t, time: new Date().toLocaleString('ar-EG') }).then(() => {
+        alert("تم الإرسال بنجاح!");
         toggleComp();
     });
 }
