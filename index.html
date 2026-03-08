@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lovin Ovin | لوڤن أوڤن</title>
+    <link rel="icon" href="logo.png" type="image/png"> <link rel="stylesheet" href="style.css">
+    <style>
+        /* أنيميشن التحميل */
+        .status-screen {
+            display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+            background:white; z-index:3000; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+        }
+        .loader {
+            border: 8px solid #f3f3f3; border-top: 8px solid var(--primary);
+            border-radius: 50%; width: 60px; height: 60px; animation: spin 2s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<div style="text-align:center; margin-top:10px;">
+
+
+
+<script>
+function openComplaint() { document.getElementById('complaintModal').style.display = 'block'; }
+
+function sendComplaint() {
+    const name = document.getElementById('compName').value;
+    const phone = document.getElementById('compPhone').value;
+    const text = document.getElementById('compText').value;
+
+    if(!text) return alert("اكتب الشكوى الأول!");
+
+    const complaint = {
+        id: Date.now(),
+        name: name || "فاعل خير",
+        phone: phone || "غير مسجل",
+        text: text,
+        time: new Date().toLocaleString('ar-EG')
+    };
+
+    let complaints = JSON.parse(localStorage.getItem('complaints')) || [];
+    complaints.push(complaint);
+    localStorage.setItem('complaints', JSON.stringify(complaints));
+
+    alert("تم استلام شكوتك وبنعتذر لك جداً.. هنراجعها فوراً!");
+    location.reload();
+}
+</script>
+<body>
+
+<div id="statusScreen" class="status-screen">
+    <img src="logo.png" style="width:100px; margin-bottom:20px;">
+    <div class="loader"></div>
+    <h2 style="color:var(--primary); margin-top:20px;">تم استلام طلبك بنجاح!</h2>
+    <p id="orderStatusText">جاري مراجعة طلبك وتحضيره الآن...</p>
+    <p style="font-size:12px; color:#888;">برجاء عدم غلق هذه الصفحة لمتابعة التحديثات</p>
+    <button onclick="cancelTracking()" style="margin-top:30px; border:none; background:none; color:red; text-decoration:underline;">طلب جديد</button>
+</div>
+
+<div class="header-pro">
+    <img src="logo.png" style="width:60px; display:block; margin:0 auto 10px;"> <h1 style="color:var(--primary); margin:0;">LOVIN OVIN</h1>
+    <p style="color:#888; font-size:12px;">أسرع دليفري وأجمد طعم وكافيه</p>
+</div>
+
+<div id="itemsGrid"></div>
+
+<div class="cart-floating" id="cartBar" style="display:none;" onclick="openOrder()">
+    <span>إتمام الطلب 🛒</span>
+    <b id="displayTotal">0 ج.م</b>
+</div>
+
+<div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:2000; padding:20px; overflow-y:auto; box-sizing:border-box;">
+    <h3>تفاصيل الطلب 🧾</h3>
+    <div id="orderItems" style="border-bottom:1px solid #eee; padding-bottom:10px;"></div>
+    
+    <div style="margin-top:15px;">
+        <input type="text" id="custName" placeholder="الاسم الكامل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px;">
+        
+        <select id="delMethod" onchange="calcTotal()" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
+            <option value="تيك أواي">تيك أواي (بدون خدمة توصيل)</option>
+            <option value="دليفري">دليفري (+ 20 ج.م خدمة)</option>
+        </select>
+
+        <div id="delDetails" style="display:none;">
+            <input type="number" id="custPhone" placeholder="رقم الموبايل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px;">
+            <input type="text" id="custAddr" placeholder="العنوان بالتفصيل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px;">
+        </div>
+
+        <select id="payMethod" onchange="togglePayImg()" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
+            <option value="عند الاستلام">كاش عند الاستلام</option>
+            <option value="فودافون كاش">فودافون كاش / InstaPay</option>
+        </select>
+
+        <div id="payInstruction" style="display:none; background:#fff3e0; padding:10px; border-radius:8px; border:1px solid #ffe0b2; margin-bottom:10px;">
+            <p style="font-size:12px; margin:0;">حول المبلغ على رقم: <b>01028047470</b></p>
+            <p style="font-size:11px; color:#e67e22;">ارفع صورة التحويل هنا 👇</p>
+            <input type="file" id="payImg" accept="image/*">
+        </div>
+    </div>
+
+    <h2 style="text-align:center;">الإجمالي: <span id="finalPrice" style="color:var(--primary);">0</span> ج.م</h2>
+    <button onclick="finish()" style="width:100%; padding:18px; background:var(--primary); color:white; border:none; border-radius:12px; font-weight:bold; font-size:1.1rem;">تأكيد الطلب 🚀</button>
+    <center><button onclick="document.getElementById('paymentModal').style.display='none'" style="margin-top:10px; color:gray; border:none; background:none;">رجوع</button></center>
+</div>
+
+<script>
+    let cart = [];
+    const menu = JSON.parse(localStorage.getItem('menu')) || [];
+
+    // فحص لو فيه طلب قديم جاري تحضيره
+    window.onload = function() {
+        if(localStorage.getItem('pendingOrder') === 'true') {
+            document.getElementById('statusScreen').style.display = 'flex';
+        }
+        render();
+    };
+
+    function render() {
+        document.getElementById('itemsGrid').innerHTML = menu.map((it, i) => `
+            <div class="menu-card">
+                <div class="img-container"><img src="${it.img}"></div>
+                <div class="item-info">
+                    <h3>${it.name}</h3>
+                    <span class="price">${it.price} ج.م</span>
+                </div>
+                <button class="add-btn" onclick="addToCart(${i})">+</button>
+            </div>
+        `).join('');
+    }
+
+    function addToCart(i) {
+        cart.push(menu[i]);
+        document.getElementById('cartBar').style.display = 'flex';
+        calcTotal();
+    }
+
+    function calcTotal() {
+        let base = cart.reduce((s, it) => s + parseFloat(it.price), 0);
+        let delivery = document.getElementById('delMethod').value === 'دليفري' ? 20 : 0;
+        let total = base + delivery;
+        document.getElementById('displayTotal').innerText = total + " ج.م";
+        document.getElementById('finalPrice').innerText = total;
+        document.getElementById('delDetails').style.display = delivery > 0 ? 'block' : 'none';
+    }
+
+    function togglePayImg() {
+        const isOnline = document.getElementById('payMethod').value === 'فودافون كاش';
+        document.getElementById('payInstruction').style.display = isOnline ? 'block' : 'none';
+    }
+
+    function openOrder() {
+        document.getElementById('paymentModal').style.display = 'block';
+        document.getElementById('orderItems').innerHTML = cart.map(it => `<p style="display:flex; justify-content:space-between; margin:5px 0;"><span>${it.name}</span> <b>${it.price} ج.م</b></p>`).join('');
+    }
+
+    function finish() {
+        const name = document.getElementById('custName').value;
+        const method = document.getElementById('delMethod').value;
+        const phone = document.getElementById('custPhone').value;
+        const payType = document.getElementById('payMethod').value;
+        const payImgFile = document.getElementById('payImg').files[0];
+
+        if(!name) return alert("الاسم مطلوب!");
+        if(method === 'دليفري' && !phone) return alert("رقم التلفون مهم للدليفري!");
+
+        const saveOrder = (imgBase64 = null) => {
+            const order = {
+                id: Date.now(),
+                name, method, phone, payType, payImg: imgBase64,
+                items: cart.map(i => i.name).join(' + '),
+                total: document.getElementById('finalPrice').innerText,
+                time: new Date().toLocaleTimeString('ar-EG'),
+                status: 'pending'
+            };
+            
+            let orders = JSON.parse(localStorage.getItem('orders')) || [];
+            orders.push(order);
+            localStorage.setItem('orders', JSON.stringify(orders));
+
+            // تفعيل شاشة التحضير وحفظ الحالة
+            localStorage.setItem('pendingOrder', 'true');
+            document.getElementById('statusScreen').style.display = 'flex';
+        }
+
+        if(payImgFile) {
+            const r = new FileReader();
+            r.onload = (e) => saveOrder(e.target.result);
+            r.readAsDataURL(payImgFile);
+        } else {
+            saveOrder();
+        }
+    }
+
+    function cancelTracking() {
+        if(confirm("هل تريد إلغاء شاشة التتبع والعودة للمنيو؟")) {
+            localStorage.removeItem('pendingOrder');
+            location.reload();
+        }
+    }
+    // ضيف الكود ده جوه الـ <script> في صفحة index.html
+function checkMyStatus() {
+    const status = localStorage.getItem('lastStatus');
+    const text = document.getElementById('orderStatusText');
+    if (status === 'accepted') {
+        text.innerHTML = "✅ تم قبول طلبك! جاري التحضير الآن 👨‍🍳";
+        text.style.color = "green";
+        text.style.fontWeight = "bold";
+    } else if (status === 'rejected') {
+        text.innerHTML = "❌ نعتذر منك، تم رفض الطلب (قد يكون المنتج غير متوفر)";
+        text.style.color = "red";
+        text.style.fontWeight = "bold";
+    }
+}
+// خليه يتأكد كل 3 ثواني من رد الأدمن
+setInterval(checkMyStatus, 3000);
+function checkMyStatus() {
+    const status = localStorage.getItem('lastStatus');
+    const text = document.getElementById('orderStatusText');
+    
+    const statuses = {
+        'pending': "🕒 طلبك قيد الانتظار.. هنراجع الطلب حالاً",
+        'preparing': "👨‍🍳 جاري تحضير طلبك الآن في المطبخ..",
+        'onway': "🛵 طلبك في الطريق إليك الآن.. استعد!",
+        'delivered': "✅ تم تسليم الطلب بنجاح.. بالهنا والشفا!",
+        'rejected': "❌ نعتذر، تم رفض الطلب لعدم توفر المكونات"
+    };
+
+    if (status && statuses[status]) {
+        text.innerHTML = statuses[status];
+        // تغيير الألوان حسب الحالة
+        if(status === 'onway') text.style.color = "orange";
+        if(status === 'delivered') text.style.color = "green";
+        if(status === 'rejected') text.style.color = "red";
+    }
+}
+setInterval(checkMyStatus, 3000);
+</script>
+<div onclick="toggleComp()" id="floatingCompBtn" style="position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: red; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; z-index: 9999; border: 3px solid white;">
+    💬
+</div>
+
+<div id="newCompScreen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center; backdrop-filter: blur(5px);">
+    <div style="background:white; width:85%; max-width:380px; padding:25px; border-radius:25px; direction:rtl; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <h3 style="text-align:center; color:red; margin:0 0 15px 0;">تقديم شكوى أو اقتراح ⚠️</h3>
+        
+        <input type="text" id="c_Name" placeholder="الاسم (اختياري)" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px; box-sizing:border-box; outline:none;">
+        
+        <input type="number" id="c_Phone" placeholder="رقم الموبايل (ضروري)" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px; box-sizing:border-box; outline:none;">
+        
+        <textarea id="c_Text" placeholder="اكتب مشكلتك هنا..." style="width:100%; height:100px; padding:12px; border:1px solid #ddd; border-radius:10px; box-sizing:border-box; outline:none; font-family:inherit;"></textarea>
+        
+        <button onclick="sendMyComplaint()" style="width:100%; padding:15px; background:red; color:white; border:none; border-radius:12px; font-weight:bold; font-size:16px; margin-top:10px; cursor:pointer;">إرسال الشكوى 🚀</button>
+        
+        <button onclick="toggleComp()" style="width:100%; background:none; border:none; color:gray; margin-top:10px; cursor:pointer; font-size:14px;">إلغاء</button>
+    </div>
+</div>
+
+<script>
+// وظيفة فتح وقفل الشاشة
+function toggleComp() {
+    const screen = document.getElementById('newCompScreen');
+    if(screen.style.display === 'none' || screen.style.display === '') {
+        screen.style.display = 'flex';
+    } else {
+        screen.style.display = 'none';
+    }
+}
+
+// وظيفة الإرسال للأدمن
+function sendMyComplaint() {
+    const n = document.getElementById('c_Name').value;
+    const p = document.getElementById('c_Phone').value;
+    const t = document.getElementById('c_Text').value;
+
+    if(!p || !t) {
+        return alert("يا ريت تكتب رقمك والشكوى عشان نقدر نساعدك!");
+    }
+
+    const complaintData = {
+        name: n || "عميل مجهول",
+        phone: p,
+        text: t,
+        time: new Date().toLocaleString('ar-EG')
+    };
+
+    // حفظ في الـ LocalStorage عشان الأدمن يشوفها
+    let list = JSON.parse(localStorage.getItem('complaints')) || [];
+    list.push(complaintData);
+    localStorage.setItem('complaints', JSON.stringify(list));
+
+    alert("تم الإرسال بنجاح.. شكراً ليك!");
+    toggleComp(); // اقفل الشاشة
+    
+    // تصفير الخانات
+    document.getElementById('c_Name').value = "";
+    document.getElementById('c_Phone').value = "";
+    document.getElementById('c_Text').value = "";
+}
+</script>
+</body>
+</html>

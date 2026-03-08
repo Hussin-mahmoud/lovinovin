@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard | Lovin Ovin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body id="adminPanel" style="display:none; background:#f0f0f0; direction: rtl;">
+    <audio id="alertSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" loop></audio>
+
+    <div style="background:orange; padding:20px; color:white; text-align:center; position:relative;">
+        <button onclick="openReports()" style="position:absolute; right:10px; top:20px; background:white; color:orange; border:none; padding:5px 10px; border-radius:5px; font-weight:bold; cursor:pointer;">📊 الحسابات</button>
+        <h2 style="margin:0;">لوحة إدارة LOVIN OVIN 👑</h2>
+    </div>
+
+    <div class="menu-container" style="padding:20px;">
+        <div style="background:white; padding:20px; border-radius:15px; margin-bottom:20px;">
+            <h3>➕ إضافة وجبة جديدة</h3>
+            <input type="text" id="foodName" placeholder="اسم الوجبة" style="width:100%; padding:10px; margin:5px 0;">
+            <input type="number" id="foodPrice" placeholder="السعر" style="width:100%; padding:10px; margin:5px 0;">
+            <input type="file" id="foodImg" style="margin:10px 0;">
+            <button onclick="addNewItem()" style="width:100%; padding:15px; background:orange; color:white; border:none; border-radius:10px; font-weight:bold;">نشر المنتج في المنيو</button>
+        </div>
+
+        <h3>🛎️ الطلبات الجديدة</h3>
+        <div id="liveOrders"></div>
+
+        <hr>
+        <h3 style="color:red;">⚠️ شكاوي العملاء</h3>
+        <div id="complaintsBox" style="background:#fff0f0; padding:15px; border-radius:15px; margin-bottom:20px; border:1px solid #ffcccc;">
+            <div id="complaintsList"></div>
+        </div>
+
+        <hr>
+        <h3>🛠️ إدارة المنيو (حذف وتعديل)</h3>
+        <div id="menuEditor" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;"></div>
+    </div>
+
+<script>
+    // نظام الباسورد 1234
+    if (sessionStorage.getItem('isLogged') !== 'true') {
+        let p = prompt("برجاء إدخال كلمة سر الإدارة:");
+        if (p === "1234") {
+            sessionStorage.setItem('isLogged', 'true');
+            document.getElementById('adminPanel').style.display = 'block';
+        } else {
+            alert("غير مسموح لك بالدخول!");
+            window.location.href = "index.html";
+        }
+    } else {
+        document.getElementById('adminPanel').style.display = 'block';
+    }
+
+    window.onclick = () => { document.getElementById('alertSound').pause(); };
+
+    function renderAdmin() {
+        // الطلبات
+        const orders = JSON.parse(localStorage.getItem('orders')) || [];
+        if(orders.length > (window.lastCount || 0)) {
+            document.getElementById('alertSound').play().catch(()=>{});
+            window.lastCount = orders.length;
+        }
+        document.getElementById('liveOrders').innerHTML = orders.slice().reverse().map((o, idx) => `
+            <div style="background:white; padding:15px; border-radius:12px; margin-bottom:10px; border-right: 5px solid green;">
+                <h4 style="margin:0;">👤 ${o.name} <small>(${o.time})</small></h4>
+                <p style="margin:5px 0;">📦 ${o.items}</p>
+                <p style="margin:0; font-weight:bold; color:orange;">💰 ${o.total} | 🛵 ${o.method}</p>
+                ${o.payImg ? `<img src="${o.payImg}" style="width:80px; margin-top:5px; border-radius:5px; cursor:pointer;" onclick="window.open(this.src)">` : ''}
+                <div style="margin-top:10px; display:flex; gap:5px;">
+                    <button onclick="updateStatus(${orders.length-1-idx}, 'delivered')" style="background:#2ecc71; color:white; border:none; padding:5px; border-radius:5px; flex:1;">تم التسليم ✅</button>
+                    <button onclick="updateStatus(${orders.length-1-idx}, 'rejected')" style="background:#e74c3c; color:white; border:none; padding:5px; border-radius:5px; flex:1;">رفض ❌</button>
+                    <button onclick="clearOrder(${orders.length-1-idx})" style="background:#eee; border:none; padding:5px; border-radius:5px;">حذف</button>
+                </div>
+            </div>
+        `).join('');
+
+        // المنيو
+        const menu = JSON.parse(localStorage.getItem('menu')) || [];
+        document.getElementById('menuEditor').innerHTML = menu.map((it, i) => `
+            <div style="background:white; padding:10px; border-radius:10px; text-align:center;">
+                <img src="${it.img}" style="width:50px; height:50px; object-fit:cover;">
+                <p style="font-size:12px; margin:5px 0;">${it.name}</p>
+                <button onclick="deleteItem(${i})" style="background:red; color:white; border:none; font-size:10px; padding:5px; border-radius:5px;">حذف 🗑️</button>
+            </div>
+        `).join('');
+
+        // الشكاوى المجمعة
+        const complaints = JSON.parse(localStorage.getItem('complaints')) || [];
+        const compDiv = document.getElementById('complaintsList');
+        if(complaints.length === 0) {
+            compDiv.innerHTML = "<p style='color:gray; text-align:center;'>لا توجد شكاوي حالياً</p>";
+        } else {
+            compDiv.innerHTML = complaints.slice().reverse().map((c, i) => `
+                <div style="background:white; padding:10px; border-radius:8px; margin-bottom:10px; border-right:4px solid red;">
+                    <b>👤 ${c.name} (${c.phone || 'بدون رقم'})</b>
+                    <p style="margin:5px 0; font-size:13px;">💬 ${c.text}</p>
+                    <button onclick="deleteComp(${complaints.length-1-i})" style="background:none; border:none; color:red; font-size:11px; text-decoration:underline; cursor:pointer;">حذف الشكوى</button>
+                </div>
+            `).join('');
+        }
+    }
+
+    // التقرير التفصيلي الجديد
+    function openReports() {
+        if(prompt("باسورد الحسابات:") === "a2020") {
+            const os = JSON.parse(localStorage.getItem('orders')) || [];
+            const delivered = os.filter(x => x.status === 'delivered');
+            const total = delivered.reduce((a, b) => a + parseFloat(b.total), 0);
+            
+            let detailsHTML = `
+                <div id="reportOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:10000; padding:20px; overflow-y:auto; direction:rtl; font-family:sans-serif;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h2 style="color:orange; margin:0;">📊 تقرير مبيعات الشفت</h2>
+                        <button onclick="document.getElementById('reportOverlay').remove()" style="background:#333; color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer;">إغلاق X</button>
+                    </div>
+                    <div style="background:#f0fff0; padding:15px; border-radius:10px; border:1px solid #90ee90; margin-bottom:15px;">
+                        <p style="margin:0; font-size:20px;">إجمالي الدخل: <b style="color:green;">${total} ج.م</b></p>
+                        <p style="margin:5px 0 0 0;">عدد الطلبات: <b>${delivered.length}</b></p>
+                    </div>
+                    <table style="width:100%; border-collapse: collapse; font-size:12px; text-align:right;">
+                        <thead>
+                            <tr style="background:#eee; border-bottom:2px solid orange;">
+                                <th style="padding:10px; border:1px solid #ddd;">الوقت</th>
+                                <th style="padding:10px; border:1px solid #ddd;">العميل</th>
+                                <th style="padding:10px; border:1px solid #ddd;">الطلب</th>
+                                <th style="padding:10px; border:1px solid #ddd;">المبلغ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${delivered.map(d => `
+                                <tr>
+                                    <td style="padding:8px; border:1px solid #ddd;">${d.time || '--'}</td>
+                                    <td style="padding:8px; border:1px solid #ddd;">${d.name}</td>
+                                    <td style="padding:8px; border:1px solid #ddd;">${d.items}</td>
+                                    <td style="padding:8px; border:1px solid #ddd; font-weight:bold;">${d.total}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <div style="margin-top:20px; text-align:center;">
+                        <button onclick="if(confirm('تصفير الشفت؟')){ localStorage.setItem('orders','[]'); location.reload(); }" style="color:red; background:none; border:1px solid red; padding:10px; border-radius:5px; cursor:pointer;">🗑️ تصفير الحسابات</button>
+                    </div>
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', detailsHTML);
+        } else { alert("الباسورد خطأ!"); }
+    }
+
+    function updateStatus(i, s) {
+        let os = JSON.parse(localStorage.getItem('orders'));
+        os[i].status = s;
+        localStorage.setItem('orders', JSON.stringify(os));
+        localStorage.setItem('lastStatus', s);
+        renderAdmin();
+    }
+
+    function addNewItem() {
+        const file = document.getElementById('foodImg').files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            let menu = JSON.parse(localStorage.getItem('menu')) || [];
+            menu.push({ 
+                name: document.getElementById('foodName').value, 
+                price: document.getElementById('foodPrice').value, 
+                img: e.target.result 
+            });
+            localStorage.setItem('menu', JSON.stringify(menu));
+            location.reload();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function deleteItem(i) {
+        let menu = JSON.parse(localStorage.getItem('menu'));
+        menu.splice(i, 1);
+        localStorage.setItem('menu', JSON.stringify(menu));
+        renderAdmin();
+    }
+
+    function clearOrder(i) {
+        let orders = JSON.parse(localStorage.getItem('orders'));
+        orders.splice(i, 1);
+        localStorage.setItem('orders', JSON.stringify(orders));
+        renderAdmin();
+    }
+
+    function deleteComp(i) {
+        let comps = JSON.parse(localStorage.getItem('complaints'));
+        comps.splice(i, 1);
+        localStorage.setItem('complaints', JSON.stringify(comps));
+        renderAdmin();
+    }
+
+    setInterval(renderAdmin, 4000);
+    renderAdmin();
+</script>
+</body>
+</html>
