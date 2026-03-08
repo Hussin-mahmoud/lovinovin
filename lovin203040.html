@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Admin Dashboard | Lovin Ovin</title>
-    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
-<body id="adminPanel" style="display:none; background:#f0f0f0; direction: rtl;">
+<body id="adminPanel" style="display:none; background:#f0f0f0; direction: rtl; font-family: sans-serif;">
     <audio id="alertSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" loop></audio>
 
     <div style="background:orange; padding:20px; color:white; text-align:center; position:relative;">
@@ -16,13 +17,13 @@
     <div class="menu-container" style="padding:20px;">
         <div style="background:white; padding:20px; border-radius:15px; margin-bottom:20px;">
             <h3>➕ إضافة وجبة جديدة</h3>
-            <input type="text" id="foodName" placeholder="اسم الوجبة" style="width:100%; padding:10px; margin:5px 0;">
-            <input type="number" id="foodPrice" placeholder="السعر" style="width:100%; padding:10px; margin:5px 0;">
+            <input type="text" id="foodName" placeholder="اسم الوجبة" style="width:100%; padding:10px; margin:5px 0; border:1px solid #ddd; border-radius:5px;">
+            <input type="number" id="foodPrice" placeholder="السعر" style="width:100%; padding:10px; margin:5px 0; border:1px solid #ddd; border-radius:5px;">
             <input type="file" id="foodImg" style="margin:10px 0;">
-            <button onclick="addNewItem()" style="width:100%; padding:15px; background:orange; color:white; border:none; border-radius:10px; font-weight:bold;">نشر المنتج في المنيو</button>
+            <button onclick="addNewItem()" style="width:100%; padding:15px; background:orange; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">نشر المنتج في المنيو</button>
         </div>
 
-        <h3>🛎️ الطلبات الجديدة</h3>
+        <h3>🛎️ الطلبات الجديدة (تلقائي)</h3>
         <div id="liveOrders"></div>
 
         <hr>
@@ -37,6 +38,18 @@
     </div>
 
 <script>
+    // إعدادات Firebase الخاصة بك
+    const firebaseConfig = {
+        apiKey: "AIzaSyDOLe6hXjYGLy-dJZgVWBsyKnG2nCdxqBQ",
+        authDomain: "lovinovin-49635.firebaseapp.com",
+        databaseURL: "https://lovinovin-49635-default-rtdb.firebaseio.com",
+        projectId: "lovinovin-49635",
+        storageBucket: "lovinovin-49635.firebasestorage.app",
+        appId: "1:447380760213:web:07a8e676d5d0e606941d9c"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     // نظام الباسورد 1234
     if (sessionStorage.getItem('isLogged') !== 'true') {
         let p = prompt("برجاء إدخال كلمة سر الإدارة:");
@@ -53,19 +66,28 @@
 
     window.onclick = () => { document.getElementById('alertSound').pause(); };
 
-    function renderAdmin() {
-        const orders = JSON.parse(localStorage.getItem('orders')) || [];
-        if(orders.length > (window.lastCount || 0)) {
+    // مصفوفات البيانات لجلبها من السيرفر
+    let currentOrders = {};
+    let currentMenu = {};
+
+    // استماع تلقائي للطلبات
+    db.ref('orders').on('value', (snapshot) => {
+        const orders = snapshot.val() || {};
+        currentOrders = orders;
+        const keys = Object.keys(orders);
+        
+        if(keys.length > (window.lastCount || 0)) {
             document.getElementById('alertSound').play().catch(()=>{});
-            window.lastCount = orders.length;
+            window.lastCount = keys.length;
         }
-        document.getElementById('liveOrders').innerHTML = orders.slice().reverse().map((o, idx) => {
-            const realIdx = orders.length - 1 - idx;
+
+        const list = keys.reverse().map(id => {
+            const o = orders[id];
             let statusColor = "#ccc"; 
-            if(o.status === 'preparing') statusColor = "#3498db"; // أزرق للتحضير
-            if(o.status === 'onway') statusColor = "#f1c40f";    // أصفر للطريق
-            if(o.status === 'delivered') statusColor = "#2ecc71"; // أخضر للتسليم
-            if(o.status === 'rejected') statusColor = "#e74c3c";  // أحمر للرفض
+            if(o.status === 'preparing') statusColor = "#3498db";
+            if(o.status === 'onway') statusColor = "#f1c40f";
+            if(o.status === 'delivered') statusColor = "#2ecc71";
+            if(o.status === 'rejected') statusColor = "#e74c3c";
 
             return `
             <div style="background:white; padding:15px; border-radius:12px; margin-bottom:10px; border-right: 8px solid ${statusColor};">
@@ -75,43 +97,86 @@
                 ${o.payImg ? `<img src="${o.payImg}" style="width:80px; margin-top:5px; border-radius:5px; cursor:pointer;" onclick="window.open(this.src)">` : ''}
                 
                 <div style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
-                    <button onclick="updateStatus(${realIdx}, 'preparing')" style="background:#3498db; color:white; border:none; padding:8px; border-radius:5px; font-size:11px;">تحضير 👨‍🍳</button>
-                    <button onclick="updateStatus(${realIdx}, 'onway')" style="background:#f1c40f; color:white; border:none; padding:8px; border-radius:5px; font-size:11px;">في الطريق 🛵</button>
-                    <button onclick="updateStatus(${realIdx}, 'delivered')" style="background:#2ecc71; color:white; border:none; padding:8px; border-radius:5px; font-size:11px;">تم التسليم ✅</button>
-                    <button onclick="updateStatus(${realIdx}, 'rejected')" style="background:#e74c3c; color:white; border:none; padding:8px; border-radius:5px; font-size:11px;">رفض ❌</button>
+                    <button onclick="updateStatus('${id}', 'preparing')" style="background:#3498db; color:white; border:none; padding:8px; border-radius:5px; font-size:11px; cursor:pointer;">تحضير 👨‍🍳</button>
+                    <button onclick="updateStatus('${id}', 'onway')" style="background:#f1c40f; color:white; border:none; padding:8px; border-radius:5px; font-size:11px; cursor:pointer;">في الطريق 🛵</button>
+                    <button onclick="updateStatus('${id}', 'delivered')" style="background:#2ecc71; color:white; border:none; padding:8px; border-radius:5px; font-size:11px; cursor:pointer;">تم التسليم ✅</button>
+                    <button onclick="updateStatus('${id}', 'rejected')" style="background:#e74c3c; color:white; border:none; padding:8px; border-radius:5px; font-size:11px; cursor:pointer;">رفض ❌</button>
                 </div>
-                <button onclick="clearOrder(${realIdx})" style="width:100%; margin-top:8px; background:#f4f4f4; border:none; padding:5px; border-radius:5px; color:gray; font-size:10px;">حذف من اللوحة</button>
-            </div>
-        `}).join('');
+                <button onclick="clearOrder('${id}')" style="width:100%; margin-top:8px; background:#f4f4f4; border:none; padding:5px; border-radius:5px; color:gray; font-size:10px; cursor:pointer;">حذف من اللوحة</button>
+            </div>`;
+        }).join('');
+        document.getElementById('liveOrders').innerHTML = list;
+    });
 
-        const menu = JSON.parse(localStorage.getItem('menu')) || [];
-        document.getElementById('menuEditor').innerHTML = menu.map((it, i) => `
+    // استماع تلقائي للمنيو
+    db.ref('menu').on('value', (snapshot) => {
+        const menu = snapshot.val() || {};
+        currentMenu = menu;
+        document.getElementById('menuEditor').innerHTML = Object.keys(menu).map(id => `
             <div style="background:white; padding:10px; border-radius:10px; text-align:center;">
-                <img src="${it.img}" style="width:50px; height:50px; object-fit:cover;">
-                <p style="font-size:12px; margin:5px 0;">${it.name}</p>
-                <button onclick="deleteItem(${i})" style="background:red; color:white; border:none; font-size:10px; padding:5px; border-radius:5px;">حذف 🗑️</button>
+                <img src="${menu[id].img}" style="width:50px; height:50px; object-fit:cover;">
+                <p style="font-size:12px; margin:5px 0;">${menu[id].name}</p>
+                <button onclick="deleteItem('${id}')" style="background:red; color:white; border:none; font-size:10px; padding:5px; border-radius:5px; cursor:pointer;">حذف 🗑️</button>
             </div>
         `).join('');
+    });
 
-        const complaints = JSON.parse(localStorage.getItem('complaints')) || [];
+    // استماع تلقائي للشكاوى
+    db.ref('complaints').on('value', (snapshot) => {
+        const complaints = snapshot.val() || {};
         const compDiv = document.getElementById('complaintsList');
-        if(complaints.length === 0) {
+        const keys = Object.keys(complaints);
+        if(keys.length === 0) {
             compDiv.innerHTML = "<p style='color:gray; text-align:center;'>لا توجد شكاوي حالياً</p>";
         } else {
-            compDiv.innerHTML = complaints.slice().reverse().map((c, i) => `
+            compDiv.innerHTML = keys.reverse().map(id => `
                 <div style="background:white; padding:10px; border-radius:8px; margin-bottom:10px; border-right:4px solid red;">
-                    <b>👤 ${c.name} (${c.phone || 'بدون رقم'})</b>
-                    <p style="margin:5px 0; font-size:13px;">💬 ${c.text}</p>
-                    <button onclick="deleteComp(${complaints.length-1-i})" style="background:none; border:none; color:red; font-size:11px; text-decoration:underline; cursor:pointer;">حذف الشكوى</button>
+                    <b>👤 ${complaints[id].name} (${complaints[id].phone || 'بدون رقم'})</b>
+                    <p style="margin:5px 0; font-size:13px;">💬 ${complaints[id].text}</p>
+                    <button onclick="deleteComp('${id}')" style="background:none; border:none; color:red; font-size:11px; text-decoration:underline; cursor:pointer;">حذف الشكوى</button>
                 </div>
             `).join('');
         }
+    });
+
+    function updateStatus(id, s) {
+        db.ref('orders/' + id).update({ status: s });
+    }
+
+    function addNewItem() {
+        const file = document.getElementById('foodImg').files[0];
+        if(!file) return alert("اختار صورة يا حسين!");
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            db.ref('menu').push({ 
+                name: document.getElementById('foodName').value, 
+                price: document.getElementById('foodPrice').value, 
+                img: e.target.result 
+            }).then(() => {
+                alert("تم النشر تلقائياً!");
+                document.getElementById('foodName').value = "";
+                document.getElementById('foodPrice').value = "";
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function deleteItem(id) {
+        if(confirm("حذف المنتج؟")) db.ref('menu/' + id).remove();
+    }
+
+    function clearOrder(id) {
+        if(confirm("حذف الطلب نهائياً؟")) db.ref('orders/' + id).remove();
+    }
+
+    function deleteComp(id) {
+        if(confirm("حذف الشكوى؟")) db.ref('complaints/' + id).remove();
     }
 
     function openReports() {
         if(prompt("باسورد الحسابات:") === "a2020") {
-            const os = JSON.parse(localStorage.getItem('orders')) || [];
-            const delivered = os.filter(x => x.status === 'delivered');
+            const delivered = Object.values(currentOrders).filter(x => x.status === 'delivered');
             const total = delivered.reduce((a, b) => a + parseFloat(b.total), 0);
             
             let detailsHTML = `
@@ -122,7 +187,7 @@
                     </div>
                     <div style="background:#f0fff0; padding:15px; border-radius:10px; border:1px solid #90ee90; margin-bottom:15px;">
                         <p style="margin:0; font-size:20px;">إجمالي الدخل: <b style="color:green;">${total} ج.م</b></p>
-                        <p style="margin:5px 0 0 0;">عدد الطلبات: <b>${delivered.length}</b></p>
+                        <p style="margin:5px 0 0 0;">عدد الطلبات المسلمة: <b>${delivered.length}</b></p>
                     </div>
                     <table style="width:100%; border-collapse: collapse; font-size:12px; text-align:right;">
                         <thead>
@@ -145,60 +210,12 @@
                         </tbody>
                     </table>
                     <div style="margin-top:20px; text-align:center;">
-                        <button onclick="if(confirm('تصفير الشفت؟')){ localStorage.setItem('orders','[]'); location.reload(); }" style="color:red; background:none; border:1px solid red; padding:10px; border-radius:5px; cursor:pointer;">🗑️ تصفير الحسابات</button>
+                        <button onclick="if(confirm('تصفير الشفت؟ سيتم حذف جميع الطلبات من السيرفر!')){ db.ref('orders').remove(); location.reload(); }" style="color:red; background:none; border:1px solid red; padding:10px; border-radius:5px; cursor:pointer;">🗑️ تصفير الحسابات</button>
                     </div>
                 </div>`;
             document.body.insertAdjacentHTML('beforeend', detailsHTML);
         } else { alert("الباسورد خطأ!"); }
     }
-
-    function updateStatus(i, s) {
-        let os = JSON.parse(localStorage.getItem('orders'));
-        os[i].status = s;
-        localStorage.setItem('orders', JSON.stringify(os));
-        localStorage.setItem('lastStatus', s);
-        renderAdmin();
-    }
-
-    function addNewItem() {
-        const file = document.getElementById('foodImg').files[0];
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            let menu = JSON.parse(localStorage.getItem('menu')) || [];
-            menu.push({ 
-                name: document.getElementById('foodName').value, 
-                price: document.getElementById('foodPrice').value, 
-                img: e.target.result 
-            });
-            localStorage.setItem('menu', JSON.stringify(menu));
-            location.reload();
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function deleteItem(i) {
-        let menu = JSON.parse(localStorage.getItem('menu'));
-        menu.splice(i, 1);
-        localStorage.setItem('menu', JSON.stringify(menu));
-        renderAdmin();
-    }
-
-    function clearOrder(i) {
-        let orders = JSON.parse(localStorage.getItem('orders'));
-        orders.splice(i, 1);
-        localStorage.setItem('orders', JSON.stringify(orders));
-        renderAdmin();
-    }
-
-    function deleteComp(i) {
-        let comps = JSON.parse(localStorage.getItem('complaints'));
-        comps.splice(i, 1);
-        localStorage.setItem('complaints', JSON.stringify(comps));
-        renderAdmin();
-    }
-
-    setInterval(renderAdmin, 4000);
-    renderAdmin();
 </script>
 </body>
 </html>
