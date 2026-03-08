@@ -47,6 +47,16 @@
             border-radius: 10px;
             background: #fff9f0;
         }
+
+        /* تنسيق الشكاوى */
+        .comp-card {
+            background: #fff0f0;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-right: 5px solid red;
+            position: relative;
+        }
     </style>
 </head>
 <body id="adminPanel" style="display:none; background:#f0f0f0; direction: rtl; font-family: sans-serif;">
@@ -169,7 +179,6 @@
             if(o.status === 'onway') { statusText = "في الطريق 🛵"; statusClass = "status-onway"; }
             if(o.status === 'rejected') { statusText = "مرفوض ❌"; statusClass = "status-rejected"; }
 
-            // التحقق من وجود صورة تحويل كاش
             let payImgHTML = "";
             if(o.payImg) {
                 payImgHTML = `
@@ -197,6 +206,31 @@
             </div>`;
         }).join('');
     });
+
+    // كود عرض الشكاوى المدمج
+    db.ref('complaints').on('value', (snapshot) => {
+        const complaints = snapshot.val() || {};
+        const keys = Object.keys(complaints);
+        
+        if (keys.length === 0) {
+            document.getElementById('complaintsList').innerHTML = "<p style='color:gray; text-align:center;'>لا توجد شكاوي حالياً</p>";
+            return;
+        }
+
+        document.getElementById('complaintsList').innerHTML = keys.reverse().map(id => {
+            const c = complaints[id];
+            return `
+            <div class="comp-card">
+                <button onclick="deleteComp('${id}')" style="float:left; background:none; border:none; color:red; cursor:pointer; font-weight:bold;">حذف 🗑️</button>
+                <h4 style="margin:0; color:red;">👤 ${c.name}</h4>
+                <p style="margin:5px 0;">📞 ${c.phone}</p>
+                <p style="background:white; padding:10px; border-radius:5px; margin:5px 0; border:1px solid #eee;">${c.text}</p>
+                <small style="color:gray;">🕒 ${c.time || ''}</small>
+            </div>`;
+        }).join('');
+    });
+
+    function deleteComp(id) { if(confirm("حذف الشكوى؟")) db.ref('complaints/' + id).remove(); }
 
     function updateStatus(id, s) { 
         db.ref('orders/' + id).update({ status: s }); 
