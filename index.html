@@ -95,6 +95,18 @@
     <center><button onclick="document.getElementById('paymentModal').style.display='none'" style="margin-top:15px; color:gray; border:none; background:none; font-size:16px;">+ إضافة المزيد للمنبو</button></center>
 </div>
 
+<div onclick="toggleComp()" id="floatingCompBtn" style="position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: red; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; z-index: 9999; border: 3px solid white;">💬</div>
+<div id="newCompScreen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center; backdrop-filter: blur(5px);">
+    <div style="background:white; width:85%; max-width:380px; padding:25px; border-radius:25px; direction:rtl;">
+        <h3 style="text-align:center; color:red;">تقديم شكوى أو اقتراح ⚠️</h3>
+        <input type="text" id="c_Name" placeholder="الاسم (اختياري)" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px; box-sizing: border-box;">
+        <input type="number" id="c_Phone" placeholder="رقم الموبايل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px; box-sizing: border-box;">
+        <textarea id="c_Text" placeholder="اكتب مشكلتك هنا..." style="width:100%; height:100px; padding:12px; border:1px solid #ddd; border-radius:10px; box-sizing: border-box;"></textarea>
+        <button onclick="sendMyComplaint()" style="width:100%; padding:15px; background:red; color:white; border:none; border-radius:12px; font-weight:bold; margin-top:10px; cursor:pointer;">إرسال الشكوى 🚀</button>
+        <button onclick="toggleComp()" style="width:100%; background:none; border:none; color:gray; margin-top:10px; cursor:pointer;">إلغاء</button>
+    </div>
+</div>
+
 <script>
     const firebaseConfig = {
         apiKey: "AIzaSyDOLe6hXjYGLy-dJZgVWBsyKnG2nCdxqBQ",
@@ -149,7 +161,7 @@
             document.getElementById('paymentModal').style.display = 'none';
             document.getElementById('cartBar').style.display = 'none';
         }
-        openOrder(); // تحديث العرض داخل السلة
+        openOrder(); 
         calcTotal();
     }
 
@@ -204,7 +216,7 @@
             
             newOrderRef.set(order).then(() => {
                 localStorage.setItem('pendingOrderId', orderId);
-                cart = []; // تصفير السلة
+                cart = []; 
                 document.getElementById('paymentModal').style.display = 'none';
                 document.getElementById('cartBar').style.display = 'none';
                 document.getElementById('statusScreen').style.display = 'flex';
@@ -237,8 +249,6 @@
 
             if (status && statuses[status]) {
                 text.innerHTML = statuses[status];
-                
-                // لو الحالة "في الطريق"، بنطلع من صفحة التتبع ونروح للمنيو بعد 5 ثواني
                 if (status === 'onway') {
                     title.innerHTML = "الأوردر خرج!";
                     text.style.color = "orange";
@@ -247,7 +257,6 @@
                         cancelTracking();
                     }, 5000); 
                 }
-                
                 if (status === 'delivered') {
                     title.innerHTML = "بالهنا والشفا!";
                     setTimeout(cancelTracking, 3000);
@@ -260,35 +269,32 @@
         localStorage.removeItem('pendingOrderId');
         location.reload();
     }
-</script>
 
-<div onclick="toggleComp()" id="floatingCompBtn" style="position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: red; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; z-index: 9999; border: 3px solid white;">💬</div>
-<div id="newCompScreen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center; backdrop-filter: blur(5px);">
-    <div style="background:white; width:85%; max-width:380px; padding:25px; border-radius:25px; direction:rtl;">
-        <h3 style="text-align:center; color:red;">تقديم شكوى أو اقتراح ⚠️</h3>
-        <input type="text" id="c_Name" placeholder="الاسم (اختياري)" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px;">
-        <input type="number" id="c_Phone" placeholder="رقم الموبايل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px;">
-        <textarea id="c_Text" placeholder="اكتب مشكلتك هنا..." style="width:100%; height:100px; padding:12px; border:1px solid #ddd; border-radius:10px;"></textarea>
-        <button onclick="sendMyComplaint()" style="width:100%; padding:15px; background:red; color:white; border:none; border-radius:12px; font-weight:bold; margin-top:10px;">إرسال الشكوى 🚀</button>
-        <button onclick="toggleComp()" style="width:100%; background:none; border:none; color:gray; margin-top:10px;">إلغاء</button>
-    </div>
-</div>
+    // وظائف الشكاوى المدمجة
+    function toggleComp() {
+        const screen = document.getElementById('newCompScreen');
+        screen.style.display = (screen.style.display === 'none' || screen.style.display === '') ? 'flex' : 'none';
+    }
 
-<script>
-function toggleComp() {
-    const screen = document.getElementById('newCompScreen');
-    screen.style.display = (screen.style.display === 'none' || screen.style.display === '') ? 'flex' : 'none';
-}
-function sendMyComplaint() {
-    const n = document.getElementById('c_Name').value;
-    const p = document.getElementById('c_Phone').value;
-    const t = document.getElementById('c_Text').value;
-    if(!p || !t) return alert("يا ريت تكتب رقمك والشكوى!");
-    db.ref('complaints').push({ name: n || "عميل مجهول", phone: p, text: t, time: new Date().toLocaleString('ar-EG') }).then(() => {
-        alert("تم الإرسال بنجاح!");
-        toggleComp();
-    });
-}
+    function sendMyComplaint() {
+        const n = document.getElementById('c_Name').value;
+        const p = document.getElementById('c_Phone').value;
+        const t = document.getElementById('c_Text').value;
+        if(!p || !t) return alert("يا ريت تكتب رقمك والشكوى!");
+        
+        db.ref('complaints').push({ 
+            name: n || "عميل مجهول", 
+            phone: p, 
+            text: t, 
+            time: new Date().toLocaleString('ar-EG') 
+        }).then(() => {
+            alert("تم الإرسال بنجاح!");
+            document.getElementById('c_Name').value = "";
+            document.getElementById('c_Phone').value = "";
+            document.getElementById('c_Text').value = "";
+            toggleComp();
+        });
+    }
 </script>
 </body>
 </html>
