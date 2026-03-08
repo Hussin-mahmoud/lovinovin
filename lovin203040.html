@@ -39,7 +39,6 @@
             border-radius: 8px; display: block; font-size: 1.1rem;
         }
 
-        /* تنسيق صورة التحويل */
         .payment-screenshot {
             margin-top: 10px;
             border: 2px dashed orange;
@@ -48,7 +47,6 @@
             background: #fff9f0;
         }
 
-        /* تنسيق الشكاوى */
         .comp-card {
             background: #fff0f0;
             padding: 15px;
@@ -88,6 +86,14 @@
             <h3>➕ إضافة وجبة جديدة</h3>
             <input type="text" id="foodName" placeholder="اسم الوجبة" style="width:100%; padding:10px; margin:5px 0; border:1px solid #ddd; border-radius:5px;">
             <input type="number" id="foodPrice" placeholder="السعر" style="width:100%; padding:10px; margin:5px 0; border:1px solid #ddd; border-radius:5px;">
+            
+            <select id="foodCategory" style="width:100%; padding:10px; margin:5px 0; border:1px solid #ddd; border-radius:5px;">
+                <option value="Hot Drinks">Hot Drinks ☕</option>
+                <option value="Cold Drinks">Cold Drinks 🍹</option>
+                <option value="Food">Food 🍔</option>
+                <option value="Desserts">Desserts 🍰</option>
+            </select>
+
             <input type="file" id="foodImg" style="margin:10px 0;">
             <button onclick="addNewItem()" style="width:100%; padding:15px; background:orange; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">نشر المنتج في المنيو</button>
         </div>
@@ -161,14 +167,8 @@
         const orders = snapshot.val() || {};
         currentOrders = orders;
         const keys = Object.keys(orders);
-        
         const hasNewOrders = Object.values(orders).some(o => !o.status || o.status === 'new');
-        
-        if(hasNewOrders) {
-            playAlarm();
-        } else {
-            stopAlarm();
-        }
+        if(hasNewOrders) playAlarm(); else stopAlarm();
 
         document.getElementById('liveOrders').innerHTML = keys.reverse().map(id => {
             const o = orders[id];
@@ -181,61 +181,25 @@
 
             let payImgHTML = "";
             if(o.payImg) {
-                payImgHTML = `
-                <div class="payment-screenshot">
-                    <p style="margin:0 0 5px 0; font-size:12px; font-weight:bold; color:orange;">📸 إيصال الدفع (كاش):</p>
-                    <img src="${o.payImg}" style="width:100%; max-width:150px; border-radius:5px; display:block; margin-bottom:5px;">
-                    <a href="${o.payImg}" download="Order_${o.name}_Payment.png" style="display:inline-block; background:orange; color:white; padding:5px 10px; text-decoration:none; border-radius:5px; font-size:12px; font-weight:bold;">⬇️ تحميل الصورة</a>
-                </div>`;
+                payImgHTML = `<div class="payment-screenshot"><p style="margin:0 0 5px 0; font-size:12px; font-weight:bold; color:orange;">📸 إيصال الدفع:</p><img src="${o.payImg}" style="width:100%; max-width:150px; border-radius:5px; display:block; margin-bottom:5px;"><a href="${o.payImg}" download="Order_${o.name}_Payment.png" style="display:inline-block; background:orange; color:white; padding:5px 10px; text-decoration:none; border-radius:5px; font-size:12px; font-weight:bold;">⬇️ تحميل</a></div>`;
             }
 
-            return `
-            <div class="order-card ${statusClass}">
-                <div class="status-header" style="background:${statusClass==='status-new'?'orange':(statusClass==='status-preparing'?'#3498db':(statusClass==='status-onway'?'#f1c40f':'#e74c3c'))}; color:white;">${statusText}</div>
-                <h4>👤 ${o.name} <button onclick="printOrder('${id}')" style="float:left; background:#333; color:white; border:none; padding:5px; border-radius:5px; cursor:pointer;">🖨️ طبع</button></h4>
-                <p>📦 ${o.items}</p>
-                <p>💰 الإجمالي: ${o.total} ج.م | 📍 ${o.method}</p>
-                <p>💳 الدفع: ${o.payType}</p>
-                ${payImgHTML}
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:5px; margin-top:10px;">
-                    <button onclick="updateStatus('${id}', 'preparing')" style="background:#3498db; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">تحضير</button>
-                    <button onclick="updateStatus('${id}', 'onway')" style="background:#f1c40f; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">الطريق</button>
-                    <button onclick="updateStatus('${id}', 'delivered')" style="background:#2ecc71; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">تم</button>
-                    <button onclick="updateStatus('${id}', 'rejected')" style="background:#e74c3c; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">رفض</button>
-                </div>
-            </div>`;
+            return `<div class="order-card ${statusClass}"><div class="status-header" style="background:${statusClass==='status-new'?'orange':(statusClass==='status-preparing'?'#3498db':(statusClass==='status-onway'?'#f1c40f':'#e74c3c'))}; color:white;">${statusText}</div><h4>👤 ${o.name} <button onclick="printOrder('${id}')" style="float:left; background:#333; color:white; border:none; padding:5px; border-radius:5px; cursor:pointer;">🖨️ طبع</button></h4><p>📦 ${o.items}</p><p>💰 الإجمالي: ${o.total} ج.م | 📍 ${o.method}</p><p>💳 الدفع: ${o.payType}</p>${payImgHTML}<div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:5px; margin-top:10px;"><button onclick="updateStatus('${id}', 'preparing')" style="background:#3498db; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">تحضير</button><button onclick="updateStatus('${id}', 'onway')" style="background:#f1c40f; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">الطريق</button><button onclick="updateStatus('${id}', 'delivered')" style="background:#2ecc71; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">تم</button><button onclick="updateStatus('${id}', 'rejected')" style="background:#e74c3c; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">رفض</button></div></div>`;
         }).join('');
     });
 
-    // كود عرض الشكاوى المدمج
     db.ref('complaints').on('value', (snapshot) => {
         const complaints = snapshot.val() || {};
         const keys = Object.keys(complaints);
-        
-        if (keys.length === 0) {
-            document.getElementById('complaintsList').innerHTML = "<p style='color:gray; text-align:center;'>لا توجد شكاوي حالياً</p>";
-            return;
-        }
-
+        if (keys.length === 0) { document.getElementById('complaintsList').innerHTML = "<p style='color:gray; text-align:center;'>لا توجد شكاوي</p>"; return; }
         document.getElementById('complaintsList').innerHTML = keys.reverse().map(id => {
             const c = complaints[id];
-            return `
-            <div class="comp-card">
-                <button onclick="deleteComp('${id}')" style="float:left; background:none; border:none; color:red; cursor:pointer; font-weight:bold;">حذف 🗑️</button>
-                <h4 style="margin:0; color:red;">👤 ${c.name}</h4>
-                <p style="margin:5px 0;">📞 ${c.phone}</p>
-                <p style="background:white; padding:10px; border-radius:5px; margin:5px 0; border:1px solid #eee;">${c.text}</p>
-                <small style="color:gray;">🕒 ${c.time || ''}</small>
-            </div>`;
+            return `<div class="comp-card"><button onclick="deleteComp('${id}')" style="float:left; background:none; border:none; color:red; cursor:pointer; font-weight:bold;">حذف 🗑️</button><h4 style="margin:0; color:red;">👤 ${c.name}</h4><p style="margin:5px 0;">📞 ${c.phone}</p><p style="background:white; padding:10px; border-radius:5px; margin:5px 0; border:1px solid #eee;">${c.text}</p><small style="color:gray;">🕒 ${c.time || ''}</small></div>`;
         }).join('');
     });
 
     function deleteComp(id) { if(confirm("حذف الشكوى؟")) db.ref('complaints/' + id).remove(); }
-
-    function updateStatus(id, s) { 
-        db.ref('orders/' + id).update({ status: s }); 
-    }
-
+    function updateStatus(id, s) { db.ref('orders/' + id).update({ status: s }); }
     function openReports() {
         let pass = prompt("باسورد الحسابات:");
         if(pass === "a2020") {
@@ -270,18 +234,35 @@
     }
 
     function deleteItem(id) { if(confirm("حذف؟")) db.ref('menu/' + id).remove(); }
+    
+    // الدالة المحدثة لحفظ الصنف بالقسم بتاعه
     function addNewItem() {
         const file = document.getElementById('foodImg').files[0];
-        if(!file) return alert("اختار صورة");
+        const category = document.getElementById('foodCategory').value;
+        const name = document.getElementById('foodName').value;
+        const price = document.getElementById('foodPrice').value;
+
+        if(!file || !name || !price) return alert("اكمل البيانات واختار صورة");
+
         const reader = new FileReader();
         reader.onload = (e) => {
-            db.ref('menu').push({ name: document.getElementById('foodName').value, price: document.getElementById('foodPrice').value, img: e.target.result }).then(() => alert("تم!"));
+            db.ref('menu').push({ 
+                name: name, 
+                price: price, 
+                category: category, 
+                img: e.target.result 
+            }).then(() => {
+                alert("تم إضافة الصنف بنجاح!");
+                document.getElementById('foodName').value = "";
+                document.getElementById('foodPrice').value = "";
+            });
         };
         reader.readAsDataURL(file);
     }
+
     db.ref('menu').on('value', (snapshot) => {
         const menu = snapshot.val() || {};
-        document.getElementById('menuEditor').innerHTML = Object.keys(menu).map(id => `<div style="background:white; padding:10px; text-align:center;"><img src="${menu[id].img}" style="width:50px;"><p>${menu[id].name}</p><button onclick="deleteItem('${id}')">حذف</button></div>`).join('');
+        document.getElementById('menuEditor').innerHTML = Object.keys(menu).map(id => `<div style="background:white; padding:10px; text-align:center;"><img src="${menu[id].img}" style="width:50px; height:50px; object-fit:cover; border-radius:5px;"><p style="margin:5px 0; font-size:12px;">${menu[id].name}</p><small style="color:orange;">${menu[id].category || 'General'}</small><br><button onclick="deleteItem('${id}')" style="background:red; color:white; border:none; padding:2px 10px; border-radius:5px; cursor:pointer; margin-top:5px;">حذف</button></div>`).join('');
     });
 </script>
 </body>
