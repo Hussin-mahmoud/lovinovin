@@ -5,99 +5,85 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lovin Ovin | لوڤن أوڤن</title>
     <link rel="icon" href="logo.png" type="image/png"> 
-    <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        #itemsGrid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            padding: 15px;
-            padding-bottom: 120px;
-        }
-        .categories-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            padding: 15px;
-        }
-        .category-card {
-            position: relative;
-            height: 110px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.12);
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; direction: rtl; background: #fdfdfd; }
+        
+        /* تنسيق كروت المنيو (الصورة على الجنب) */
+        #itemsGrid { display: flex; flex-direction: column; gap: 12px; padding: 15px; padding-bottom: 120px; }
+        .menu-card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: relative; border: 1px solid #eee; display: flex; height: 100px; align-items: center; }
+        
+        .menu-card .img-container { width: 100px; height: 100px; flex-shrink: 0; background: #fafafa; display: flex; align-items: center; justify-content: center; border-left: 1px solid #f0f0f0; }
+        .menu-card img { max-width: 90%; max-height: 90%; object-fit: contain; }
+        
+        .item-info { padding: 10px; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; }
+        .item-info h3 { margin: 0; font-size: 15px; color: #333; }
+        .item-info .price { color: #000; font-weight: 800; font-size: 14px; margin-top: 5px; }
+        
+        .add-btn { background: #fff; color: orange; border: 1.5px solid orange; width: 32px; height: 32px; border-radius: 10px; font-size: 22px; cursor: pointer; position: absolute; bottom: 10px; left: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+
+        .categories-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 15px; }
+        .category-card { position: relative; height: 110px; border-radius: 20px; display: flex; align-items: center; justify-content: center; flex-direction: column; color: white; font-weight: bold; cursor: pointer; transition: transform 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.12); }
+        .category-card:active { transform: scale(0.95); }
         .cat-hot { background: linear-gradient(135deg, #FF8C00, #FF4500); }
         .cat-cold { background: linear-gradient(135deg, #00BFFF, #1E90FF); }
         .cat-food { background: linear-gradient(135deg, #4CAF50, #2E7D32); }
         .cat-dessert { background: linear-gradient(135deg, #E91E63, #9C27B0); }
-        .status-screen { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:3000; flex-direction:column; align-items:center; justify-content:center; }
+
+        .status-screen { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:3000; flex-direction:column; align-items:center; justify-content:center; text-align: center; }
         .loader { border: 8px solid #f3f3f3; border-top: 8px solid orange; border-radius: 50%; width: 60px; height: 60px; animation: spin 2s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* زرار الرجوع الشيك */
-        .back-nav {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #eee;
-        }
-        .back-btn {
-            background: orange;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 10px;
-            font-weight: bold;
-            cursor: pointer;
-        }
+        .back-nav { display: flex; align-items: center; padding: 15px; background: #fff; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 1000; }
+        .back-btn { background: orange; color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+
+        .cart-floating { position: fixed; bottom: 20px; left: 5%; width: 90%; max-width: 400px; background: #333; color: white; padding: 16px; border-radius: 15px; z-index: 2000; cursor: pointer; display: none; }
+        
+        .assistant-btn { position: fixed; bottom: 90px; right: 20px; width: 50px; height: 50px; background: orange; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 2000; color: white; font-size: 25px; font-weight: bold; cursor: pointer; border: 2px solid white; }
+
+        .modal-full { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:2500; padding:20px; overflow-y:auto; box-sizing: border-box; }
+        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 10px; font-family: inherit; box-sizing: border-box; font-size: 14px; }
+        .pay-box { background: #fff9f0; padding: 15px; border-radius: 12px; border: 1px dashed orange; display: none; text-align: center; margin-bottom: 15px; }
     </style>
 </head>
 <body>
+
+<div class="assistant-btn" onclick="document.getElementById('compModal').style.display='block'">؟</div>
 
 <div id="statusScreen" class="status-screen">
     <img src="logo.png" style="width:100px; margin-bottom:20px;">
     <div class="loader"></div>
     <h2 id="statusTitle" style="color:orange; margin-top:20px;">تم استلام طلبك!</h2>
     <p id="orderStatusText">جاري مراجعة طلبك وتحضيره الآن...</p>
-    <button onclick="cancelTracking()" style="margin-top:30px; border:none; background:none; color:red; text-decoration:underline;">إلغاء والعودة للقائمة</button>
+    <button onclick="location.reload()" style="margin-top:30px; border:none; background:none; color:red; text-decoration:underline; font-weight:bold;">العودة للقائمة</button>
 </div>
 
 <div id="categoryPage">
-    <div class="header-pro">
-        <img src="logo.png" style="width:60px; display:block; margin:0 auto 10px;"> 
-        <h1 style="color:orange; margin:0; text-align: center;">LOVIN OVIN</h1>
-        <p style="color:#888; font-size:12px; text-align: center;">أسرع دليفري وأجمد طعم وكافيه</p>
+    <div class="header-pro" style="padding-top: 20px;">
+        <img src="logo.png" style="width:70px; display:block; margin:0 auto 10px;"> 
+        <h1 style="color:orange; margin:0; text-align: center; letter-spacing: 1px;">LOVIN OVIN</h1>
+        <p style="color:#888; font-size:13px; text-align: center;">أسرع دليفري وأجمد طعم وكافيه</p>
     </div>
 
     <div id="categorySection">
-        <h2 style="text-align: center; margin-top: 20px; color: #444;">Explore Menu 🍴</h2>
+        <h2 style="text-align: center; margin-top: 25px; color: #333; font-size: 18px;">Explore Menu 🍴</h2>
         <div class="categories-grid">
             <div class="category-card cat-hot" onclick="openCategory('Hot Drinks')">
-                <span class="icon">☕</span>
-                <h3>Hot Drinks</h3>
+                <span style="font-size: 30px;">☕</span>
+                <h3 style="margin: 5px 0 0;">Hot Drinks</h3>
             </div>
             <div class="category-card cat-cold" onclick="openCategory('Cold Drinks')">
-                <span class="icon">🍹</span>
-                <h3>Cold Drinks</h3>
+                <span style="font-size: 30px;">🍹</span>
+                <h3 style="margin: 5px 0 0;">Cold Drinks</h3>
             </div>
             <div class="category-card cat-food" onclick="openCategory('Food')">
-                <span class="icon">🍔</span>
-                <h3>Food</h3>
+                <span style="font-size: 30px;">🍔</span>
+                <h3 style="margin: 5px 0 0;">Food</h3>
             </div>
             <div class="category-card cat-dessert" onclick="openCategory('Desserts')">
-                <span class="icon">🍰</span>
-                <h3>Desserts</h3>
+                <span style="font-size: 30px;">🍰</span>
+                <h3 style="margin: 5px 0 0;">Desserts</h3>
             </div>
         </div>
     </div>
@@ -111,32 +97,51 @@
     <div id="itemsGrid"></div>
 </div>
 
-<div class="cart-floating" id="cartBar" style="display:none; justify-content: space-between; align-items: center;" onclick="openOrder()">
+<div class="cart-floating" id="cartBar" onclick="openOrder()">
     <span>إتمام الطلب 🛒 (<b id="cartCount">0</b>)</span>
     <b id="displayTotal">0 ج.م</b>
 </div>
 
-<div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:2000; padding:20px; overflow-y:auto;">
-    <h3>سلة المشتريات 🛒</h3>
-    <div id="orderItems" style="background:#f9f9f9; border-radius:15px; padding:10px; margin-bottom:15px;"></div>
-    <div style="margin-top:15px;">
-        <input type="text" id="custName" placeholder="الاسم الكامل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px;">
-        <select id="delMethod" onchange="calcTotal()" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
-            <option value="تيك أواي">تيك أواي (من الفرع)</option>
-            <option value="دليفري">دليفري (+ 20 ج.م خدمة)</option>
-        </select>
-        <div id="delDetails" style="display:none;">
-            <input type="number" id="custPhone" placeholder="رقم الموبايل" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
-            <input type="text" id="custAddr" placeholder="العنوان بالتفصيل" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
-        </div>
-        <select id="payMethod" onchange="togglePayImg()" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
-            <option value="عند الاستلام">كاش عند الاستلام</option>
-            <option value="فودافون كاش">فودافون كاش / InstaPay</option>
-        </select>
+<div id="paymentModal" class="modal-full">
+    <h3 style="text-align: center;">سلة المشتريات 🛒</h3>
+    <div id="orderItems" style="background:#f9f9f9; border-radius:15px; padding:10px; margin-bottom:15px; font-size: 14px;"></div>
+    
+    <input type="text" id="custName" placeholder="الاسم الكامل">
+    <input type="number" id="custPhone" placeholder="رقم الموبايل">
+    
+    <select id="delMethod" onchange="calcTotal()">
+        <option value="تيك أواي">استلام من الفرع (تيك أواي)</option>
+        <option value="دليفري">توصيل دليفري (+ 20 ج.م خدمة)</option>
+    </select>
+    
+    <div id="delDetails" style="display:none;">
+        <input type="text" id="custAddr" placeholder="العنوان بالتفصيل">
     </div>
-    <h2 style="text-align:center;">الإجمالي: <span id="finalPrice" style="color:orange;">0</span> ج.م</h2>
-    <button onclick="finish()" style="width:100%; padding:18px; background:orange; color:white; border:none; border-radius:12px; font-weight:bold;">إرسال الطلب 🚀</button>
-    <center><button onclick="document.getElementById('paymentModal').style.display='none'" style="margin-top:15px; background:none; border:none; color:gray;">+ إضافة المزيد</button></center>
+
+    <select id="payMethod" onchange="togglePayBox()">
+        <option value="عند الاستلام">كاش عند الاستلام</option>
+        <option value="محفظة">فودافون كاش / InstaPay</option>
+    </select>
+
+    <div id="payBox" class="pay-box">
+        <p style="font-size: 13px; margin-bottom: 10px;">حول لـ: <b style="color:orange;">01028047470</b></p>
+        <p style="font-size: 11px; color: #666;">ارفع صورة التحويل للتأكيد:</p>
+        <input type="file" id="payImg" accept="image/*">
+    </div>
+
+    <h2 style="text-align:center; margin: 20px 0;">الإجمالي: <span id="finalPrice" style="color:orange;">0</span> ج.م</h2>
+    
+    <button onclick="finishOrder()" style="width:100%; padding:18px; background:orange; color:white; border:none; border-radius:12px; font-weight:bold; font-size: 16px;">إرسال الطلب 🚀</button>
+    <center><button onclick="document.getElementById('paymentModal').style.display='none'" style="margin-top:15px; background:none; border:none; color:gray;">+ إضافة المزيد للمنيو</button></center>
+</div>
+
+<div id="compModal" class="modal-full">
+    <h3 style="text-align:center;">الشكاوى والمقترحات</h3>
+    <input type="text" id="cName" placeholder="الاسم">
+    <input type="number" id="cPhone" placeholder="الموبايل">
+    <textarea id="cMessage" placeholder="اكتب رسالتك هنا..." rows="4"></textarea>
+    <button onclick="submitComplaint()" style="width:100%; padding:15px; background:orange; color:white; border:none; border-radius:10px; font-weight:bold;">إرسال</button>
+    <button onclick="document.getElementById('compModal').style.display='none'" style="width:100%; margin-top:10px; background:none; border:none; color:gray;">إلغاء</button>
 </div>
 
 <script>
@@ -153,40 +158,36 @@
 
     let cart = [];
     let menu = [];
-    let currentCategory = 'All';
+    let currentCategory = '';
 
     window.onload = function() {
         db.ref('menu').on('value', (snapshot) => {
             const data = snapshot.val();
             menu = data ? Object.keys(data).map(key => ({id: key, ...data[key]})) : [];
-            // لا نشغل render هنا لأننا في صفحة الأقسام
         });
     };
 
-    // الدالة المسؤولة عن فتح "الصفحة" الجديدة للقسم
     function openCategory(cat) {
         currentCategory = cat;
         document.getElementById('categoryPage').style.display = 'none';
         document.getElementById('productsPage').style.display = 'block';
         document.getElementById('pageTitle').innerText = cat;
-        render();
+        renderProducts();
         window.scrollTo(0,0);
     }
 
-    // الدالة المسؤولة عن الرجوع للأقسام
     function goBack() {
         document.getElementById('categoryPage').style.display = 'block';
         document.getElementById('productsPage').style.display = 'none';
     }
 
-    function render() {
+    function renderProducts() {
         const grid = document.getElementById('itemsGrid');
         grid.innerHTML = ""; 
-
         const filtered = menu.filter(item => item.category.trim() === currentCategory.trim());
 
         if (filtered.length === 0) {
-            grid.innerHTML = `<p style="text-align:center; grid-column: 1/3; color:#999; padding:40px;">جاري تجهيز المنيو.. ⏳</p>`;
+            grid.innerHTML = `<p style="text-align:center; color:#999; padding:40px;">جاري تجهيز المنيو.. ⏳</p>`;
             return;
         }
 
@@ -207,7 +208,11 @@
 
     function addToCartById(id) {
         const item = menu.find(i => i.id === id);
-        if(item) { cart.push(item); document.getElementById('cartBar').style.display = 'flex'; calcTotal(); }
+        if(item) { 
+            cart.push(item); 
+            document.getElementById('cartBar').style.display = 'flex'; 
+            calcTotal(); 
+        }
     }
 
     function calcTotal() {
@@ -221,23 +226,93 @@
 
     function openOrder() {
         document.getElementById('paymentModal').style.display = 'block';
-        document.getElementById('orderItems').innerHTML = cart.map((it, idx) => `
-            <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #ddd;">
+        const list = document.getElementById('orderItems');
+        list.innerHTML = cart.map((it, idx) => `
+            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee;">
                 <span>${it.name}</span>
-                <button onclick="removeFromCart(${idx})" style="color:red; border:none; background:none;">حذف</button>
+                <b style="color:red; cursor:pointer;" onclick="removeFromCart(${idx})">حذف</b>
             </div>
         `).join('');
     }
 
     function removeFromCart(index) {
         cart.splice(index, 1);
-        if(cart.length === 0) { document.getElementById('paymentModal').style.display = 'none'; document.getElementById('cartBar').style.display = 'none'; }
-        openOrder(); calcTotal();
+        if(cart.length === 0) { 
+            document.getElementById('paymentModal').style.display = 'none'; 
+            document.getElementById('cartBar').style.display = 'none'; 
+        } else {
+            openOrder();
+        }
+        calcTotal();
     }
 
-    function finish() {
-        alert("تم إرسال الطلب بنجاح!");
-        location.reload();
+    function togglePayBox() {
+        document.getElementById('payBox').style.display = document.getElementById('payMethod').value === 'محفظة' ? 'block' : 'none';
+    }
+
+    function finishOrder() {
+        const name = document.getElementById('custName').value;
+        const phone = document.getElementById('custPhone').value;
+        const method = document.getElementById('delMethod').value;
+        const address = document.getElementById('custAddr').value;
+        const file = document.getElementById('payImg').files[0];
+
+        if(!name || !phone) return alert("من فضلك اكتب اسمك ورقم موبايلك");
+        if(method === 'دليفري' && !address) return alert("من فضلك اكتب عنوانك بالتفصيل");
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                sendToFirebase(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            sendToFirebase(null);
+        }
+
+        function sendToFirebase(imgData) {
+            const orderRef = db.ref('orders').push();
+            const orderId = orderRef.key;
+
+            orderRef.set({
+                id: orderId,
+                customerName: name,
+                customerPhone: phone,
+                address: method === 'تيك أواي' ? 'استلام من الفرع' : address,
+                items: cart,
+                totalPrice: document.getElementById('finalPrice').innerText,
+                paymentScreenshot: imgData,
+                time: new Date().toLocaleString(),
+                status: "قيد المراجعة"
+            }).then(() => {
+                document.getElementById('paymentModal').style.display = 'none';
+                document.getElementById('statusScreen').style.display = 'flex';
+                // تفعيل خاصية تتبع الحالة الحية
+                trackOrderStatus(orderId);
+            });
+        }
+    }
+
+    // خاصية تتبع الحالة من الأدمن بشكل فوري
+    function trackOrderStatus(id) {
+        db.ref('orders/' + id + '/status').on('value', (snap) => {
+            const currentStatus = snap.val();
+            if(currentStatus) {
+                document.getElementById('orderStatusText').innerText = currentStatus;
+                if(currentStatus === "تم التسليم" || currentStatus === "تم") {
+                    document.getElementById('statusTitle').innerText = "بالهناء والشفاء! 😍";
+                }
+            }
+        });
+    }
+
+    function submitComplaint() {
+        const n = document.getElementById('cName').value;
+        const p = document.getElementById('cPhone').value;
+        const m = document.getElementById('cMessage').value;
+        if(!n || !p || !m) return alert("كمل البيانات");
+        db.ref('complaints').push({ name: n, phone: p, message: m, time: new Date().toLocaleString() })
+        .then(() => { alert("رسالتك وصلت، شكراً ليك."); document.getElementById('compModal').style.display='none'; });
     }
 </script>
 </body>
