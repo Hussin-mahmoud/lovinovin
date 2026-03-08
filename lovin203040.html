@@ -5,16 +5,66 @@
     <title>Admin Dashboard | Lovin Ovin</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #printArea, #printArea * { visibility: visible; }
+            #printArea { position: absolute; left: 0; top: 0; width: 100%; direction: rtl; }
+            .no-print { display: none !important; }
+        }
+        #reportModal {
+            display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+            background:rgba(0,0,0,0.8); z-index:10000; align-items:center; justify-content:center;
+        }
+        .report-content {
+            background:white; width:90%; max-width:600px; max-height:80vh; 
+            padding:20px; border-radius:15px; overflow-y:auto; direction:rtl; font-family: sans-serif;
+        }
+        .report-table { width:100%; border-collapse:collapse; margin-top:15px; }
+        .report-table th, .report-table td { border:1px solid #ddd; padding:8px; text-align:center; }
+        .report-table th { background:orange; color:white; }
+        
+        .order-card { background:white; padding:15px; border-radius:12px; margin-bottom:10px; border-right: 8px solid #ddd; }
+        .status-new { border-right-color: orange; animation: blink 1s infinite; }
+        .status-preparing { border-right-color: #3498db; }
+        .status-onway { border-right-color: #f1c40f; }
+        .status-rejected { border-right-color: #e74c3c; opacity: 0.7; }
+        .status-header { font-weight: bold; padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; margin-bottom: 10px; display: inline-block; }
+        
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        
+        #soundActivator {
+            background: #2ecc71; color: white; border: none; padding: 15px; 
+            width: 100%; font-weight: bold; cursor: pointer; margin-bottom: 10px;
+            border-radius: 8px; display: block; font-size: 1.1rem;
+        }
+    </style>
 </head>
 <body id="adminPanel" style="display:none; background:#f0f0f0; direction: rtl; font-family: sans-serif;">
-    <audio id="alertSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    
+    <div id="printArea"></div> 
+    
+    <div id="reportModal" class="no-print">
+        <div class="report-content">
+            <h2 style="text-align:center; color:orange;">📊 تقرير الحسابات وتقفيل الشفت</h2>
+            <div id="reportStats" style="display:flex; justify-content:space-around; background:#fff5e6; padding:15px; border-radius:10px; margin-bottom:15px; text-align:center;"></div>
+            <div id="reportTableContainer"></div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button onclick="document.getElementById('reportModal').style.display='none'" style="flex:1; padding:12px; background:#ccc; border:none; border-radius:8px; cursor:pointer;">إغلاق</button>
+                <button onclick="clearDeliveredOrders()" style="flex:1; padding:12px; background:red; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">🏁 تقفيل الشفت</button>
+                <button onclick="startPrintReport()" style="flex:2; padding:12px; background:orange; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">طباعة التقرير 🖨️</button>
+            </div>
+        </div>
+    </div>
 
-    <div style="background:orange; padding:20px; color:white; text-align:center; position:relative;">
+    <div class="no-print" style="background:orange; padding:20px; color:white; text-align:center; position:relative;">
         <button onclick="openReports()" style="position:absolute; right:10px; top:20px; background:white; color:orange; border:none; padding:5px 10px; border-radius:5px; font-weight:bold; cursor:pointer;">📊 الحسابات</button>
         <h2 style="margin:0;">لوحة إدارة LOVIN OVIN 👑</h2>
     </div>
 
-    <div class="menu-container" style="padding:20px;">
+    <div class="menu-container no-print" style="padding:20px;">
+        <button id="soundActivator" onclick="enableSound()">🔔 اضغط هنا لتشغيل جرس التنبيه</button>
+
         <div style="background:white; padding:20px; border-radius:15px; margin-bottom:20px;">
             <h3>➕ إضافة وجبة جديدة</h3>
             <input type="text" id="foodName" placeholder="اسم الوجبة" style="width:100%; padding:10px; margin:5px 0; border:1px solid #ddd; border-radius:5px;">
@@ -23,17 +73,13 @@
             <button onclick="addNewItem()" style="width:100%; padding:15px; background:orange; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">نشر المنتج في المنيو</button>
         </div>
 
-        <h3>🛎️ الطلبات الجديدة (تلقائي)</h3>
+        <h3>🛎️ مراقبة الطلبات</h3>
         <div id="liveOrders"></div>
-
         <hr>
         <h3 style="color:red;">⚠️ شكاوي العملاء</h3>
-        <div id="complaintsBox" style="background:#fff0f0; padding:15px; border-radius:15px; margin-bottom:20px; border:1px solid #ffcccc;">
-            <div id="complaintsList"></div>
-        </div>
-
+        <div id="complaintsList"></div>
         <hr>
-        <h3>🛠️ إدارة المنيو (حذف وتعديل)</h3>
+        <h3>🛠️ إدارة المنيو</h3>
         <div id="menuEditor" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;"></div>
     </div>
 
@@ -49,128 +95,139 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // نظام الدخول
     if (sessionStorage.getItem('isLogged') !== 'true') {
-        let p = prompt("برجاء إدخال كلمة سر الإدارة:");
-        if (p === "1234") {
-            sessionStorage.setItem('isLogged', 'true');
+        let p = prompt("كلمة سر الإدارة:");
+        if (p === "1234") { 
+            sessionStorage.setItem('isLogged', 'true'); 
             document.getElementById('adminPanel').style.display = 'block';
-        } else {
-            alert("غير مسموح لك بالدخول!");
-            window.location.href = "index.html";
         }
-    } else {
-        document.getElementById('adminPanel').style.display = 'block';
+        else { alert("خطأ!"); window.location.href = "index.html"; }
+    } else { document.getElementById('adminPanel').style.display = 'block'; }
+
+    // --- نظام التنبيه الجديد (بدون ملفات خارجية) ---
+    let audioCtx = null;
+    let alarmInterval = null;
+
+    function enableSound() {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        document.getElementById('soundActivator').style.background = '#aaa';
+        document.getElementById('soundActivator').innerText = '✅ الجرس يعمل في الخلفية';
+        document.getElementById('soundActivator').disabled = true;
     }
 
-    // تشغيل الصوت عند أول لمسة للشاشة (عشان المتصفح مبيسمحش بالصوت تلقائي)
-    window.onclick = () => { document.getElementById('alertSound').pause(); };
+    function playAlarm() {
+        if (!audioCtx || alarmInterval) return;
+        alarmInterval = setInterval(() => {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        }, 500);
+    }
+
+    function stopAlarm() {
+        if (alarmInterval) {
+            clearInterval(alarmInterval);
+            alarmInterval = null;
+        }
+    }
 
     let currentOrders = {};
-    let lastOrdersCount = 0;
-
-    // استماع للطلبات وتفعيل الجرس
+    
     db.ref('orders').on('value', (snapshot) => {
         const orders = snapshot.val() || {};
         currentOrders = orders;
         const keys = Object.keys(orders);
         
-        // لو عدد الطلبات زاد، رن الجرس
-        if(keys.length > lastOrdersCount && lastOrdersCount !== 0) {
-            const sound = document.getElementById('alertSound');
-            sound.currentTime = 0;
-            sound.play().catch(e => console.log("اضغط على الصفحة لتفعيل الصوت"));
+        const hasNewOrders = Object.values(orders).some(o => !o.status || o.status === 'new');
+        
+        if(hasNewOrders) {
+            playAlarm();
+        } else {
+            stopAlarm();
         }
-        lastOrdersCount = keys.length;
 
-        const list = keys.reverse().map(id => {
+        document.getElementById('liveOrders').innerHTML = keys.reverse().map(id => {
             const o = orders[id];
-            let statusColor = "#ccc"; 
-            if(o.status === 'preparing') statusColor = "#3498db";
-            if(o.status === 'onway') statusColor = "#f1c40f";
-            if(o.status === 'delivered') statusColor = "#2ecc71";
-            if(o.status === 'rejected') statusColor = "#e74c3c";
+            if(o.status === 'delivered') return '';
+            let statusText = "طلب جديد 🔥";
+            let statusClass = "status-new";
+            if(o.status === 'preparing') { statusText = "جاري التحضير 👨‍🍳"; statusClass = "status-preparing"; }
+            if(o.status === 'onway') { statusText = "في الطريق 🛵"; statusClass = "status-onway"; }
+            if(o.status === 'rejected') { statusText = "مرفوض ❌"; statusClass = "status-rejected"; }
 
             return `
-            <div style="background:white; padding:15px; border-radius:12px; margin-bottom:10px; border-right: 8px solid ${statusColor};">
-                <h4 style="margin:0;">👤 ${o.name} <small>(${o.time})</small></h4>
-                <p style="margin:5px 0;">📦 ${o.items}</p>
-                <p style="margin:0; font-weight:bold; color:orange;">💰 ${o.total} | 🛵 ${o.method}</p>
-                ${o.payImg ? `<img src="${o.payImg}" style="width:80px; margin-top:5px; border-radius:5px; cursor:pointer;" onclick="window.open(this.src)">` : ''}
-                
-                <div style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
-                    <button onclick="updateStatus('${id}', 'preparing')" style="background:#3498db; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">تحضير 👨‍🍳</button>
-                    <button onclick="updateStatus('${id}', 'onway')" style="background:#f1c40f; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">في الطريق 🛵</button>
-                    <button onclick="updateStatus('${id}', 'delivered')" style="background:#2ecc71; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">تم التسليم ✅</button>
-                    <button onclick="updateStatus('${id}', 'rejected')" style="background:#e74c3c; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">رفض ❌</button>
+            <div class="order-card ${statusClass}">
+                <div class="status-header" style="background:${statusClass==='status-new'?'orange':(statusClass==='status-preparing'?'#3498db':(statusClass==='status-onway'?'#f1c40f':'#e74c3c'))}; color:white;">${statusText}</div>
+                <h4>👤 ${o.name} <button onclick="printOrder('${id}')" style="float:left; background:#333; color:white; border:none; padding:5px; border-radius:5px; cursor:pointer;">🖨️ طبع</button></h4>
+                <p>📦 ${o.items}</p>
+                <p>💰 الإجمالي: ${o.total} ج.م | 📍 ${o.method}</p>
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:5px;">
+                    <button onclick="updateStatus('${id}', 'preparing')" style="background:#3498db; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">تحضير</button>
+                    <button onclick="updateStatus('${id}', 'onway')" style="background:#f1c40f; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">الطريق</button>
+                    <button onclick="updateStatus('${id}', 'delivered')" style="background:#2ecc71; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">تم</button>
+                    <button onclick="updateStatus('${id}', 'rejected')" style="background:#e74c3c; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">رفض</button>
                 </div>
-                <button onclick="clearOrder('${id}')" style="width:100%; margin-top:8px; background:#f4f4f4; border:none; padding:5px; border-radius:5px; color:gray; font-size:10px; cursor:pointer;">حذف من اللوحة</button>
             </div>`;
         }).join('');
-        document.getElementById('liveOrders').innerHTML = list;
     });
 
-    // تحديث الحالة لـ Firebase (عشان تسمع عند الزبون)
-    function updateStatus(id, s) {
-        db.ref('orders/' + id).update({ status: s }).then(() => {
-            alert("تم تحديث الحالة!");
-        });
+    function updateStatus(id, s) { 
+        db.ref('orders/' + id).update({ status: s }); 
     }
 
-    // استماع للمنيو والشكاوى (نفس الكود بتاعك)
-    db.ref('menu').on('value', (snapshot) => {
-        const menu = snapshot.val() || {};
-        document.getElementById('menuEditor').innerHTML = Object.keys(menu).map(id => `
-            <div style="background:white; padding:10px; border-radius:10px; text-align:center;">
-                <img src="${menu[id].img}" style="width:50px; height:50px; object-fit:cover;">
-                <p style="font-size:12px; margin:5px 0;">${menu[id].name}</p>
-                <button onclick="deleteItem('${id}')" style="background:red; color:white; border:none; font-size:10px; padding:5px; border-radius:5px; cursor:pointer;">حذف 🗑️</button>
-            </div>
-        `).join('');
-    });
+    function openReports() {
+        let pass = prompt("باسورد الحسابات:");
+        if(pass === "a2020") {
+            const delivered = Object.values(currentOrders).filter(x => x.status === 'delivered');
+            const totalIncome = delivered.reduce((a, b) => a + parseFloat(b.total), 0);
+            document.getElementById('reportStats').innerHTML = `<div><p>إجمالي الدخل</p><b>${totalIncome} ج.م</b></div><div><p>طلبات مسلمة</p><b>${delivered.length} طلب</b></div>`;
+            let tableHTML = `<table class="report-table"><thead><tr><th>الوقت</th><th>العميل</th><th>المبلغ</th></tr></thead><tbody>${delivered.map(d => `<tr><td>${d.time}</td><td>${d.name}</td><td>${d.total} ج.م</td></tr>`).join('')}</tbody></table>`;
+            document.getElementById('reportTableContainer').innerHTML = tableHTML;
+            document.getElementById('reportModal').style.display = 'flex';
+        } else if(pass !== null) alert("غلط!");
+    }
 
-    db.ref('complaints').on('value', (snapshot) => {
-        const complaints = snapshot.val() || {};
-        const compDiv = document.getElementById('complaintsList');
-        const keys = Object.keys(complaints);
-        compDiv.innerHTML = keys.length === 0 ? "<p>لا توجد شكاوي</p>" : keys.reverse().map(id => `
-            <div style="background:white; padding:10px; border-radius:8px; margin-bottom:10px; border-right:4px solid red;">
-                <b>👤 ${complaints[id].name} (${complaints[id].phone})</b>
-                <p>💬 ${complaints[id].text}</p>
-                <button onclick="deleteComp('${id}')" style="color:red; background:none; border:none; cursor:pointer; text-decoration:underline;">حذف</button>
-            </div>
-        `).join('');
-    });
+    function clearDeliveredOrders() {
+        let pass = prompt("باسورد الحسابات:");
+        if(pass === "a2020") {
+            const updates = {};
+            Object.keys(currentOrders).forEach(id => { if(currentOrders[id].status === 'delivered' || currentOrders[id].status === 'rejected') updates[id] = null; });
+            db.ref('orders').update(updates).then(() => { alert("تم التصفير"); document.getElementById('reportModal').style.display = 'none'; });
+        }
+    }
 
-    function addNewItem() {
-        const file = document.getElementById('foodImg').files[0];
-        if(!file) return alert("اختار صورة يا حسين!");
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            db.ref('menu').push({ 
-                name: document.getElementById('foodName').value, 
-                price: document.getElementById('foodPrice').value, 
-                img: e.target.result 
-            }).then(() => {
-                alert("تم النشر!");
-                document.getElementById('foodName').value = "";
-                document.getElementById('foodPrice').value = "";
-            });
-        };
-        reader.readAsDataURL(file);
+    function startPrintReport() {
+        const content = document.getElementById('reportStats').innerHTML + document.getElementById('reportTableContainer').innerHTML;
+        document.getElementById('printArea').innerHTML = `<div style="direction:rtl; padding:20px;">${content}</div>`;
+        window.print();
+    }
+
+    function printOrder(id) {
+        const o = currentOrders[id];
+        document.getElementById('printArea').innerHTML = `<div style="text-align:center; padding:20px; direction:rtl;"><h2>LOVIN OVIN</h2><p>${o.name}</p><p>${o.items}</p><p>${o.total} ج.م</p></div>`;
+        window.print();
     }
 
     function deleteItem(id) { if(confirm("حذف؟")) db.ref('menu/' + id).remove(); }
-    function clearOrder(id) { if(confirm("حذف الطلب؟")) db.ref('orders/' + id).remove(); }
-    function deleteComp(id) { if(confirm("حذف الشكوى؟")) db.ref('complaints/' + id).remove(); }
-
-    function openReports() {
-        if(prompt("باسورد الحسابات:") === "a2020") {
-            const delivered = Object.values(currentOrders).filter(x => x.status === 'delivered');
-            const total = delivered.reduce((a, b) => a + parseFloat(b.total), 0);
-            alert("إجمالي الدخل: " + total + " ج.م\nعدد الطلبات: " + delivered.length);
-        }
+    function addNewItem() {
+        const file = document.getElementById('foodImg').files[0];
+        if(!file) return alert("اختار صورة");
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            db.ref('menu').push({ name: document.getElementById('foodName').value, price: document.getElementById('foodPrice').value, img: e.target.result }).then(() => alert("تم!"));
+        };
+        reader.readAsDataURL(file);
     }
+    db.ref('menu').on('value', (snapshot) => {
+        const menu = snapshot.val() || {};
+        document.getElementById('menuEditor').innerHTML = Object.keys(menu).map(id => `<div style="background:white; padding:10px; text-align:center;"><img src="${menu[id].img}" style="width:50px;"><p>${menu[id].name}</p><button onclick="deleteItem('${id}')">حذف</button></div>`).join('');
+    });
 </script>
 </body>
 </html>
