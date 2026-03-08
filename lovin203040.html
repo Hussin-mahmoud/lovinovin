@@ -24,7 +24,7 @@
         .report-table th, .report-table td { border:1px solid #ddd; padding:8px; text-align:center; }
         .report-table th { background:orange; color:white; }
         
-        .order-card { background:white; padding:15px; border-radius:12px; margin-bottom:10px; border-right: 8px solid #ddd; }
+        .order-card { background:white; padding:15px; border-radius:12px; margin-bottom:10px; border-right: 8px solid #ddd; position: relative; }
         .status-new { border-right-color: orange; animation: blink 1s infinite; }
         .status-preparing { border-right-color: #3498db; }
         .status-onway { border-right-color: #f1c40f; }
@@ -37,6 +37,15 @@
             background: #2ecc71; color: white; border: none; padding: 15px; 
             width: 100%; font-weight: bold; cursor: pointer; margin-bottom: 10px;
             border-radius: 8px; display: block; font-size: 1.1rem;
+        }
+
+        /* تنسيق صورة التحويل */
+        .payment-screenshot {
+            margin-top: 10px;
+            border: 2px dashed orange;
+            padding: 5px;
+            border-radius: 10px;
+            background: #fff9f0;
         }
     </style>
 </head>
@@ -104,7 +113,6 @@
         else { alert("خطأ!"); window.location.href = "index.html"; }
     } else { document.getElementById('adminPanel').style.display = 'block'; }
 
-    // --- نظام التنبيه الجديد (بدون ملفات خارجية) ---
     let audioCtx = null;
     let alarmInterval = null;
 
@@ -161,13 +169,26 @@
             if(o.status === 'onway') { statusText = "في الطريق 🛵"; statusClass = "status-onway"; }
             if(o.status === 'rejected') { statusText = "مرفوض ❌"; statusClass = "status-rejected"; }
 
+            // التحقق من وجود صورة تحويل كاش
+            let payImgHTML = "";
+            if(o.payImg) {
+                payImgHTML = `
+                <div class="payment-screenshot">
+                    <p style="margin:0 0 5px 0; font-size:12px; font-weight:bold; color:orange;">📸 إيصال الدفع (كاش):</p>
+                    <img src="${o.payImg}" style="width:100%; max-width:150px; border-radius:5px; display:block; margin-bottom:5px;">
+                    <a href="${o.payImg}" download="Order_${o.name}_Payment.png" style="display:inline-block; background:orange; color:white; padding:5px 10px; text-decoration:none; border-radius:5px; font-size:12px; font-weight:bold;">⬇️ تحميل الصورة</a>
+                </div>`;
+            }
+
             return `
             <div class="order-card ${statusClass}">
                 <div class="status-header" style="background:${statusClass==='status-new'?'orange':(statusClass==='status-preparing'?'#3498db':(statusClass==='status-onway'?'#f1c40f':'#e74c3c'))}; color:white;">${statusText}</div>
                 <h4>👤 ${o.name} <button onclick="printOrder('${id}')" style="float:left; background:#333; color:white; border:none; padding:5px; border-radius:5px; cursor:pointer;">🖨️ طبع</button></h4>
                 <p>📦 ${o.items}</p>
                 <p>💰 الإجمالي: ${o.total} ج.م | 📍 ${o.method}</p>
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:5px;">
+                <p>💳 الدفع: ${o.payType}</p>
+                ${payImgHTML}
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:5px; margin-top:10px;">
                     <button onclick="updateStatus('${id}', 'preparing')" style="background:#3498db; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">تحضير</button>
                     <button onclick="updateStatus('${id}', 'onway')" style="background:#f1c40f; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">الطريق</button>
                     <button onclick="updateStatus('${id}', 'delivered')" style="background:#2ecc71; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">تم</button>
