@@ -9,33 +9,58 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        /* تحسينات السلة الجديدة */
-        .cart-item-row {
+        #itemsGrid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            padding: 15px;
+            padding-bottom: 120px;
+        }
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 15px;
+        }
+        .category-card {
+            position: relative;
+            height: 110px;
+            border-radius: 20px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 10px;
+            justify-content: center;
+            flex-direction: column;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.12);
+        }
+        .cat-hot { background: linear-gradient(135deg, #FF8C00, #FF4500); }
+        .cat-cold { background: linear-gradient(135deg, #00BFFF, #1E90FF); }
+        .cat-food { background: linear-gradient(135deg, #4CAF50, #2E7D32); }
+        .cat-dessert { background: linear-gradient(135deg, #E91E63, #9C27B0); }
+        .status-screen { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:3000; flex-direction:column; align-items:center; justify-content:center; }
+        .loader { border: 8px solid #f3f3f3; border-top: 8px solid orange; border-radius: 50%; width: 60px; height: 60px; animation: spin 2s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* زرار الرجوع الشيك */
+        .back-nav {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
             border-bottom: 1px solid #eee;
         }
-        .remove-btn {
-            background: #ff4757;
+        .back-btn {
+            background: orange;
             color: white;
             border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
+            padding: 8px 15px;
+            border-radius: 10px;
+            font-weight: bold;
             cursor: pointer;
-            font-size: 12px;
         }
-        /* أنيميشن التحميل */
-        .status-screen {
-            display:none; position:fixed; top:0; left:0; width:100%; height:100%;
-            background:white; z-index:3000; flex-direction:column; align-items:center; justify-content:center; text-align:center;
-        }
-        .loader {
-            border: 8px solid #f3f3f3; border-top: 8px solid var(--primary);
-            border-radius: 50%; width: 60px; height: 60px; animation: spin 2s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -43,68 +68,75 @@
 <div id="statusScreen" class="status-screen">
     <img src="logo.png" style="width:100px; margin-bottom:20px;">
     <div class="loader"></div>
-    <h2 id="statusTitle" style="color:var(--primary); margin-top:20px;">تم استلام طلبك!</h2>
+    <h2 id="statusTitle" style="color:orange; margin-top:20px;">تم استلام طلبك!</h2>
     <p id="orderStatusText">جاري مراجعة طلبك وتحضيره الآن...</p>
-    <p style="font-size:12px; color:#888;">برجاء عدم غلق هذه الصفحة لمتابعة التحديثات</p>
     <button onclick="cancelTracking()" style="margin-top:30px; border:none; background:none; color:red; text-decoration:underline;">إلغاء والعودة للقائمة</button>
 </div>
 
-<div class="header-pro">
-    <img src="logo.png" style="width:60px; display:block; margin:0 auto 10px;"> <h1 style="color:var(--primary); margin:0;">LOVIN OVIN</h1>
-    <p style="color:#888; font-size:12px;">أسرع دليفري وأجمد طعم وكافيه</p>
+<div id="categoryPage">
+    <div class="header-pro">
+        <img src="logo.png" style="width:60px; display:block; margin:0 auto 10px;"> 
+        <h1 style="color:orange; margin:0; text-align: center;">LOVIN OVIN</h1>
+        <p style="color:#888; font-size:12px; text-align: center;">أسرع دليفري وأجمد طعم وكافيه</p>
+    </div>
+
+    <div id="categorySection">
+        <h2 style="text-align: center; margin-top: 20px; color: #444;">Explore Menu 🍴</h2>
+        <div class="categories-grid">
+            <div class="category-card cat-hot" onclick="openCategory('Hot Drinks')">
+                <span class="icon">☕</span>
+                <h3>Hot Drinks</h3>
+            </div>
+            <div class="category-card cat-cold" onclick="openCategory('Cold Drinks')">
+                <span class="icon">🍹</span>
+                <h3>Cold Drinks</h3>
+            </div>
+            <div class="category-card cat-food" onclick="openCategory('Food')">
+                <span class="icon">🍔</span>
+                <h3>Food</h3>
+            </div>
+            <div class="category-card cat-dessert" onclick="openCategory('Desserts')">
+                <span class="icon">🍰</span>
+                <h3>Desserts</h3>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div id="itemsGrid"></div>
+<div id="productsPage" style="display:none;">
+    <div class="back-nav">
+        <button class="back-btn" onclick="goBack()">← رجوع</button>
+        <h2 id="pageTitle" style="margin-right:15px; font-size:18px; color:#333;"></h2>
+    </div>
+    <div id="itemsGrid"></div>
+</div>
 
 <div class="cart-floating" id="cartBar" style="display:none; justify-content: space-between; align-items: center;" onclick="openOrder()">
     <span>إتمام الطلب 🛒 (<b id="cartCount">0</b>)</span>
     <b id="displayTotal">0 ج.م</b>
 </div>
 
-<div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:2000; padding:20px; overflow-y:auto; box-sizing:border-box;">
+<div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:2000; padding:20px; overflow-y:auto;">
     <h3>سلة المشتريات 🛒</h3>
     <div id="orderItems" style="background:#f9f9f9; border-radius:15px; padding:10px; margin-bottom:15px;"></div>
-    
     <div style="margin-top:15px;">
         <input type="text" id="custName" placeholder="الاسم الكامل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px;">
-        
         <select id="delMethod" onchange="calcTotal()" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
             <option value="تيك أواي">تيك أواي (من الفرع)</option>
             <option value="دليفري">دليفري (+ 20 ج.م خدمة)</option>
         </select>
-
         <div id="delDetails" style="display:none;">
-            <input type="number" id="custPhone" placeholder="رقم الموبايل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px;">
-            <input type="text" id="custAddr" placeholder="العنوان بالتفصيل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px;">
+            <input type="number" id="custPhone" placeholder="رقم الموبايل" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
+            <input type="text" id="custAddr" placeholder="العنوان بالتفصيل" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
         </div>
-
         <select id="payMethod" onchange="togglePayImg()" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px;">
             <option value="عند الاستلام">كاش عند الاستلام</option>
             <option value="فودافون كاش">فودافون كاش / InstaPay</option>
         </select>
-
-        <div id="payInstruction" style="display:none; background:#fff3e0; padding:10px; border-radius:8px; border:1px solid #ffe0b2; margin-bottom:10px;">
-            <p style="font-size:12px; margin:0;">حول المبلغ على رقم: <b>01028047470</b></p>
-            <p style="font-size:11px; color:#e67e22;">ارفع صورة التحويل هنا 👇</p>
-            <input type="file" id="payImg" accept="image/*">
-        </div>
     </div>
-
-    <h2 style="text-align:center;">الإجمالي النهائي: <span id="finalPrice" style="color:var(--primary);">0</span> ج.م</h2>
-    <button onclick="finish()" style="width:100%; padding:18px; background:var(--primary); color:white; border:none; border-radius:12px; font-weight:bold; font-size:1.1rem;">إرسال الطلب للمطعم 🚀</button>
-    <center><button onclick="document.getElementById('paymentModal').style.display='none'" style="margin-top:15px; color:gray; border:none; background:none; font-size:16px;">+ إضافة المزيد للمنبو</button></center>
-</div>
-
-<div onclick="toggleComp()" id="floatingCompBtn" style="position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: red; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; z-index: 9999; border: 3px solid white;">💬</div>
-<div id="newCompScreen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center; backdrop-filter: blur(5px);">
-    <div style="background:white; width:85%; max-width:380px; padding:25px; border-radius:25px; direction:rtl;">
-        <h3 style="text-align:center; color:red;">تقديم شكوى أو اقتراح ⚠️</h3>
-        <input type="text" id="c_Name" placeholder="الاسم (اختياري)" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px; box-sizing: border-box;">
-        <input type="number" id="c_Phone" placeholder="رقم الموبايل" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:10px; box-sizing: border-box;">
-        <textarea id="c_Text" placeholder="اكتب مشكلتك هنا..." style="width:100%; height:100px; padding:12px; border:1px solid #ddd; border-radius:10px; box-sizing: border-box;"></textarea>
-        <button onclick="sendMyComplaint()" style="width:100%; padding:15px; background:red; color:white; border:none; border-radius:12px; font-weight:bold; margin-top:10px; cursor:pointer;">إرسال الشكوى 🚀</button>
-        <button onclick="toggleComp()" style="width:100%; background:none; border:none; color:gray; margin-top:10px; cursor:pointer;">إلغاء</button>
-    </div>
+    <h2 style="text-align:center;">الإجمالي: <span id="finalPrice" style="color:orange;">0</span> ج.م</h2>
+    <button onclick="finish()" style="width:100%; padding:18px; background:orange; color:white; border:none; border-radius:12px; font-weight:bold;">إرسال الطلب 🚀</button>
+    <center><button onclick="document.getElementById('paymentModal').style.display='none'" style="margin-top:15px; background:none; border:none; color:gray;">+ إضافة المزيد</button></center>
 </div>
 
 <script>
@@ -121,179 +153,91 @@
 
     let cart = [];
     let menu = [];
+    let currentCategory = 'All';
 
     window.onload = function() {
-        const pendingId = localStorage.getItem('pendingOrderId');
-        if(pendingId) {
-            document.getElementById('statusScreen').style.display = 'flex';
-            watchOrderStatus(pendingId);
-        }
-        
         db.ref('menu').on('value', (snapshot) => {
             const data = snapshot.val();
             menu = data ? Object.keys(data).map(key => ({id: key, ...data[key]})) : [];
-            render();
+            // لا نشغل render هنا لأننا في صفحة الأقسام
         });
     };
 
+    // الدالة المسؤولة عن فتح "الصفحة" الجديدة للقسم
+    function openCategory(cat) {
+        currentCategory = cat;
+        document.getElementById('categoryPage').style.display = 'none';
+        document.getElementById('productsPage').style.display = 'block';
+        document.getElementById('pageTitle').innerText = cat;
+        render();
+        window.scrollTo(0,0);
+    }
+
+    // الدالة المسؤولة عن الرجوع للأقسام
+    function goBack() {
+        document.getElementById('categoryPage').style.display = 'block';
+        document.getElementById('productsPage').style.display = 'none';
+    }
+
     function render() {
-        document.getElementById('itemsGrid').innerHTML = menu.map((it, i) => `
-            <div class="menu-card">
+        const grid = document.getElementById('itemsGrid');
+        grid.innerHTML = ""; 
+
+        const filtered = menu.filter(item => item.category.trim() === currentCategory.trim());
+
+        if (filtered.length === 0) {
+            grid.innerHTML = `<p style="text-align:center; grid-column: 1/3; color:#999; padding:40px;">جاري تجهيز المنيو.. ⏳</p>`;
+            return;
+        }
+
+        filtered.forEach(it => {
+            const card = document.createElement('div');
+            card.className = "menu-card"; 
+            card.innerHTML = `
                 <div class="img-container"><img src="${it.img}"></div>
                 <div class="item-info">
                     <h3>${it.name}</h3>
                     <span class="price">${it.price} ج.م</span>
                 </div>
-                <button class="add-btn" onclick="addToCart(${i})">+</button>
-            </div>
-        `).join('');
+                <button class="add-btn" onclick="addToCartById('${it.id}')">+</button>
+            `;
+            grid.appendChild(card);
+        });
     }
 
-    function addToCart(i) {
-        cart.push(menu[i]);
-        document.getElementById('cartBar').style.display = 'flex';
-        calcTotal();
-    }
-
-    function removeFromCart(index) {
-        cart.splice(index, 1);
-        if(cart.length === 0) {
-            document.getElementById('paymentModal').style.display = 'none';
-            document.getElementById('cartBar').style.display = 'none';
-        }
-        openOrder(); 
-        calcTotal();
+    function addToCartById(id) {
+        const item = menu.find(i => i.id === id);
+        if(item) { cart.push(item); document.getElementById('cartBar').style.display = 'flex'; calcTotal(); }
     }
 
     function calcTotal() {
         let base = cart.reduce((s, it) => s + parseFloat(it.price), 0);
         let delivery = document.getElementById('delMethod').value === 'دليفري' ? 20 : 0;
-        let total = base + delivery;
-        document.getElementById('displayTotal').innerText = total + " ج.م";
-        document.getElementById('finalPrice').innerText = total;
+        document.getElementById('displayTotal').innerText = (base + delivery) + " ج.م";
+        document.getElementById('finalPrice').innerText = base + delivery;
         document.getElementById('cartCount').innerText = cart.length;
         document.getElementById('delDetails').style.display = delivery > 0 ? 'block' : 'none';
-    }
-
-    function togglePayImg() {
-        const isOnline = document.getElementById('payMethod').value === 'فودافون كاش';
-        document.getElementById('payInstruction').style.display = isOnline ? 'block' : 'none';
     }
 
     function openOrder() {
         document.getElementById('paymentModal').style.display = 'block';
         document.getElementById('orderItems').innerHTML = cart.map((it, idx) => `
-            <div class="cart-item-row">
-                <span>${it.name} (${it.price} ج.م)</span>
-                <button class="remove-btn" onclick="removeFromCart(${idx})">حذف 🗑️</button>
+            <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #ddd;">
+                <span>${it.name}</span>
+                <button onclick="removeFromCart(${idx})" style="color:red; border:none; background:none;">حذف</button>
             </div>
         `).join('');
     }
 
+    function removeFromCart(index) {
+        cart.splice(index, 1);
+        if(cart.length === 0) { document.getElementById('paymentModal').style.display = 'none'; document.getElementById('cartBar').style.display = 'none'; }
+        openOrder(); calcTotal();
+    }
+
     function finish() {
-        const name = document.getElementById('custName').value;
-        const method = document.getElementById('delMethod').value;
-        const phone = document.getElementById('custPhone').value;
-        const payType = document.getElementById('payMethod').value;
-        const payImgFile = document.getElementById('payImg').files[0];
-
-        if(!name) return alert("الاسم مطلوب!");
-        if(method === 'دليفري' && !phone) return alert("رقم التلفون مهم للدليفري!");
-        if(cart.length === 0) return alert("السلة فاضية!");
-
-        const saveOrder = (imgBase64 = null) => {
-            const newOrderRef = db.ref('orders').push();
-            const orderId = newOrderRef.key;
-            
-            const order = {
-                id: orderId,
-                name, method, phone, payType, payImg: imgBase64,
-                items: cart.map(i => i.name).join(' + '),
-                total: document.getElementById('finalPrice').innerText,
-                time: new Date().toLocaleTimeString('ar-EG'),
-                status: 'new'
-            };
-            
-            newOrderRef.set(order).then(() => {
-                localStorage.setItem('pendingOrderId', orderId);
-                cart = []; 
-                document.getElementById('paymentModal').style.display = 'none';
-                document.getElementById('cartBar').style.display = 'none';
-                document.getElementById('statusScreen').style.display = 'flex';
-                watchOrderStatus(orderId);
-            });
-        }
-
-        if(payImgFile) {
-            const r = new FileReader();
-            r.onload = (e) => saveOrder(e.target.result);
-            r.readAsDataURL(payImgFile);
-        } else {
-            saveOrder();
-        }
-    }
-
-    function watchOrderStatus(id) {
-        db.ref('orders/' + id + '/status').on('value', (snapshot) => {
-            const status = snapshot.val();
-            const text = document.getElementById('orderStatusText');
-            const title = document.getElementById('statusTitle');
-            
-            const statuses = {
-                'new': "🕒 طلبك وصل للمطعم.. هنراجعه حالاً",
-                'preparing': "👨‍🍳 جاري التحضير الآن في المطبخ..",
-                'onway': "🛵 طلبك في الطريق إليك الآن.. استعد!",
-                'delivered': "✅ تم التسليم بنجاح.. بالهنا والشفا!",
-                'rejected': "❌ نعتذر، تم رفض الطلب لعدم توفر المكونات"
-            };
-
-            if (status && statuses[status]) {
-                text.innerHTML = statuses[status];
-                if (status === 'onway') {
-                    title.innerHTML = "الأوردر خرج!";
-                    text.style.color = "orange";
-                    setTimeout(() => {
-                        alert("طلبك في الطريق! تقدر تطلب حاجة تانية دلوقتي.");
-                        cancelTracking();
-                    }, 5000); 
-                }
-                if (status === 'delivered') {
-                    title.innerHTML = "بالهنا والشفا!";
-                    setTimeout(cancelTracking, 3000);
-                }
-            }
-        });
-    }
-
-    function cancelTracking() {
-        localStorage.removeItem('pendingOrderId');
+        alert("تم إرسال الطلب بنجاح!");
         location.reload();
-    }
-
-    // وظائف الشكاوى المدمجة
-    function toggleComp() {
-        const screen = document.getElementById('newCompScreen');
-        screen.style.display = (screen.style.display === 'none' || screen.style.display === '') ? 'flex' : 'none';
-    }
-
-    function sendMyComplaint() {
-        const n = document.getElementById('c_Name').value;
-        const p = document.getElementById('c_Phone').value;
-        const t = document.getElementById('c_Text').value;
-        if(!p || !t) return alert("يا ريت تكتب رقمك والشكوى!");
-        
-        db.ref('complaints').push({ 
-            name: n || "عميل مجهول", 
-            phone: p, 
-            text: t, 
-            time: new Date().toLocaleString('ar-EG') 
-        }).then(() => {
-            alert("تم الإرسال بنجاح!");
-            document.getElementById('c_Name').value = "";
-            document.getElementById('c_Phone').value = "";
-            document.getElementById('c_Text').value = "";
-            toggleComp();
-        });
     }
 </script>
 </body>
